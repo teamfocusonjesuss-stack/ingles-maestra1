@@ -374,6 +374,8 @@ class StudentPayment(db.Model):
     status = db.Column(db.String(20), nullable=False, default='pending')  # pending o paid
     paid_date = db.Column(db.DateTime, nullable=True)
     notes = db.Column(db.String(255), nullable=True)
+    paypal_account_email = db.Column(db.String(160), nullable=True)
+    paypal_account_name = db.Column(db.String(160), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class ImportantDate(db.Model):
@@ -862,6 +864,8 @@ def pagos():
                 currency = request.form.get('currency', 'USD').strip().upper()
                 due_date_raw = request.form.get('due_date', '').strip()
                 notes = request.form.get('notes', '').strip()
+                paypal_account_email = request.form.get('paypal_account_email', '').strip().lower()
+                paypal_account_name = request.form.get('paypal_account_name', '').strip()
                 keep_filters = request.form.get('keep_filters', '1') == '1'
                 selected_student_raw = request.form.get('current_student_id', '').strip()
                 selected_status = request.form.get('current_status', 'all').strip().lower()
@@ -888,6 +892,14 @@ def pagos():
                     flash('Ingresa el concepto del cobro.', 'danger')
                     return redirect(url_for('pagos'))
 
+                if paypal_account_email and '@' not in paypal_account_email:
+                    flash('El correo de PayPal del administrador no es válido.', 'danger')
+                    return redirect(url_for('pagos'))
+
+                if paypal_account_email and not paypal_account_name:
+                    flash('Ingresa el nombre del titular de la cuenta PayPal.', 'danger')
+                    return redirect(url_for('pagos'))
+
                 try:
                     due_date = datetime.strptime(due_date_raw, '%Y-%m-%d').date()
                 except ValueError:
@@ -902,7 +914,9 @@ def pagos():
                     currency=currency,
                     due_date=due_date,
                     status='pending',
-                    notes=notes if notes else None
+                    notes=notes if notes else None,
+                    paypal_account_email=paypal_account_email if paypal_account_email else None,
+                    paypal_account_name=paypal_account_name if paypal_account_name else None
                 )
                 db.session.add(scheduled_payment)
                 db.session.commit()
@@ -2975,6 +2989,12 @@ with app.app_context():
     if 'is_published' not in course_page_columns:
         db.session.execute(text("ALTER TABLE course_page ADD COLUMN is_published BOOLEAN DEFAULT 1"))
     db.session.execute(text("UPDATE course_page SET is_published = 1 WHERE is_published IS NULL"))
+
+    student_payment_columns = [row[1] for row in db.session.execute(text("PRAGMA table_info(student_payment)")).fetchall()]
+    if 'paypal_account_email' not in student_payment_columns:
+        db.session.execute(text("ALTER TABLE student_payment ADD COLUMN paypal_account_email VARCHAR(160)"))
+    if 'paypal_account_name' not in student_payment_columns:
+        db.session.execute(text("ALTER TABLE student_payment ADD COLUMN paypal_account_name VARCHAR(160)"))
 
     db.session.commit()
 

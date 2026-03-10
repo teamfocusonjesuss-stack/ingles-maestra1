@@ -53,6 +53,16 @@
                 <input type="text" id="notes" name="notes" placeholder="{{ 'Additional charge details' if current_lang == 'en' else 'Detalle adicional del cobro' }}">
             </div>
 
+            <div class="form-group">
+                <label for="paypal_account_email">{{ 'PayPal account for deposit (optional)' if current_lang == 'en' else 'Cuenta PayPal para depósito (opcional)' }}</label>
+                <input type="email" id="paypal_account_email" name="paypal_account_email" placeholder="{{ 'teacher@paypal.com' if current_lang == 'en' else 'docente@paypal.com' }}">
+            </div>
+
+            <div class="form-group">
+                <label for="paypal_account_name">{{ 'PayPal account holder (optional)' if current_lang == 'en' else 'Titular de la cuenta PayPal (opcional)' }}</label>
+                <input type="text" id="paypal_account_name" name="paypal_account_name" placeholder="{{ 'Account holder name' if current_lang == 'en' else 'Nombre del titular' }}">
+            </div>
+
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
                 <button type="submit" name="keep_filters" value="1" class="btn btn-primary">{{ 'Save and keep filter' if current_lang == 'en' else 'Guardar y mantener filtro' }}</button>
                 <button type="submit" name="keep_filters" value="0" class="btn btn-danger">{{ 'Save and view all' if current_lang == 'en' else 'Guardar y ver todo' }}</button>
@@ -158,6 +168,15 @@
                     <p><strong>{{ payment.concept }}</strong></p>
                     <p>{{ '%.2f'|format(payment.amount) }} {{ payment.currency }}</p>
                     <p>{{ 'Due date:' if current_lang == 'en' else 'Fecha límite:' }} {{ payment.due_date.strftime('%d/%m/%Y') }}</p>
+                    {% if payment.paypal_account_email %}
+                    <div style="margin-top:8px; padding:10px; border:1px solid rgba(34,197,94,0.35); border-radius:8px;">
+                        <p style="margin:0;"><strong>{{ 'PayPal account to deposit' if current_lang == 'en' else 'Cuenta PayPal para depósito' }}</strong></p>
+                        {% if payment.paypal_account_name %}
+                        <p style="margin:4px 0 0 0;">{{ 'Holder:' if current_lang == 'en' else 'Titular:' }} {{ payment.paypal_account_name }}</p>
+                        {% endif %}
+                        <p style="margin:4px 0 0 0;">{{ 'Email:' if current_lang == 'en' else 'Correo:' }} {{ payment.paypal_account_email }}</p>
+                    </div>
+                    {% endif %}
                     {% if stripe_enabled %}
                     <form method="POST" action="{{ url_for('stripe_checkout_create', schedule_id=payment.id) }}" style="margin-top:10px;">
                         <button type="submit" class="btn btn-primary">{{ 'Pay now' if current_lang == 'en' else 'Pagar ahora' }}</button>
