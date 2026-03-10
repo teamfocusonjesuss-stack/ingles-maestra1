@@ -17,7 +17,7 @@
         <div id="tab_paypal_account" style="margin-top: 12px;">
         <div class="card" style="margin-top: 18px;">
             <h3 style="margin-bottom: 8px;">{{ 'PayPal account (administrator)' if current_lang == 'en' else 'Cuenta PayPal (administrador)' }}</h3>
-            <form method="POST" style="display:grid; gap:10px;">
+            <form method="POST" action="{{ url_for('pagos') }}" style="display:grid; gap:10px;">
                 <input type="hidden" name="action" value="save_paypal_account">
                 <div class="form-group" style="margin:0;">
                     <label for="admin_paypal_account_email">{{ 'PayPal email' if current_lang == 'en' else 'Correo PayPal' }}</label>

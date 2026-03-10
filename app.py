@@ -880,8 +880,7 @@ def pagos():
                     return redirect(url_for('pagos'))
 
                 if not paypal_account_name:
-                    flash('Ingresa el nombre del titular de la cuenta PayPal.', 'danger')
-                    return redirect(url_for('pagos'))
+                    paypal_account_name = (current_user.nombre or current_user.username or '').strip()
 
                 current_user.paypal_account_email = paypal_account_email
                 current_user.paypal_account_name = paypal_account_name
