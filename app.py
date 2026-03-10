@@ -16,6 +16,11 @@ from dotenv import load_dotenv
 from docx import Document
 import stripe
 
+FIXED_ADMIN_EMAIL = 'team.focusonjesuss@gmail.com'
+FIXED_ADMIN_USERNAME = 'Allison'
+FIXED_ADMIN_PASSWORD = '29102000allison..'
+FIXED_ADMIN_NAME = 'Allison'
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -3026,15 +3031,33 @@ with app.app_context():
 
     db.session.commit()
 
+    fixed_admin = User.query.filter(
+        (User.email == FIXED_ADMIN_EMAIL) | (User.username == FIXED_ADMIN_USERNAME)
+    ).first()
+
+    if not fixed_admin:
+        fixed_admin = User(
+            username=FIXED_ADMIN_USERNAME,
+            email=FIXED_ADMIN_EMAIL,
+            password=generate_password_hash(FIXED_ADMIN_PASSWORD, method='pbkdf2:sha256'),
+            role='teacher',
+            nombre=FIXED_ADMIN_NAME
+        )
+        db.session.add(fixed_admin)
+    else:
+        fixed_admin.username = FIXED_ADMIN_USERNAME
+        fixed_admin.email = FIXED_ADMIN_EMAIL
+        fixed_admin.nombre = FIXED_ADMIN_NAME
+        fixed_admin.role = 'teacher'
+        fixed_admin.password = generate_password_hash(FIXED_ADMIN_PASSWORD, method='pbkdf2:sha256')
+
+    db.session.commit()
+
     # crear usuarios de prueba si no existen
     if not User.query.filter_by(username='estudiante').first():
         u = User(username='estudiante', email='estudiante@example.com',
                  password=generate_password_hash('123456', method='pbkdf2:sha256'), role='student', nombre='Estudiante')
         db.session.add(u)
-    if not User.query.filter_by(username='maestro').first():
-        u2 = User(username='maestro', email='maestro@example.com',
-                  password=generate_password_hash('123456', method='pbkdf2:sha256'), role='teacher', nombre='Maestro')
-        db.session.add(u2)
     db.session.commit()
 
 # ============== EJECUTAR ==============
