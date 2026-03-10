@@ -17,6 +17,7 @@
         <div id="tab_paypal_account" style="margin-top: 12px;">
         <div class="card" style="margin-top: 18px;">
             <h3 style="margin-bottom: 8px;">{{ 'PayPal account (administrator)' if current_lang == 'en' else 'Cuenta PayPal (administrador)' }}</h3>
+            <p style="margin:0 0 8px 0; font-size:13px; opacity:0.85;">{{ 'You can edit this account at any time and save changes.' if current_lang == 'en' else 'Puedes editar esta cuenta en cualquier momento y guardar los cambios.' }}</p>
             <form method="POST" action="{{ url_for('pagos') }}" style="display:grid; gap:10px;">
                 <input type="hidden" name="action" value="save_paypal_account">
                 <div class="form-group" style="margin:0;">
@@ -28,9 +29,15 @@
                     <input type="text" id="admin_paypal_account_name" name="admin_paypal_account_name" value="{{ admin_paypal_account_name }}" placeholder="{{ 'Full name' if current_lang == 'en' else 'Nombre completo' }}">
                 </div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                    <button type="submit" class="btn btn-secondary">{{ 'Save PayPal account' if current_lang == 'en' else 'Guardar cuenta PayPal' }}</button>
+                    <button type="submit" class="btn btn-secondary">{{ 'Update PayPal account' if admin_paypal_account_email else ('Save PayPal account' if current_lang == 'en' else 'Guardar cuenta PayPal') }}</button>
                 </div>
             </form>
+            {% if admin_paypal_account_email %}
+            <form method="POST" action="{{ url_for('pagos') }}" style="margin-top:8px;">
+                <input type="hidden" name="action" value="delete_paypal_account">
+                <button type="submit" class="btn btn-danger">{{ 'Delete account' if current_lang == 'en' else 'Eliminar cuenta' }}</button>
+            </form>
+            {% endif %}
             {% if admin_paypal_account_email %}
             <div style="margin-top:10px; padding:10px; border:1px solid rgba(34,197,94,0.45); border-radius:8px;">
                 <p style="margin:0;"><strong>{{ 'Saved account:' if current_lang == 'en' else 'Cuenta guardada:' }}</strong> {{ admin_paypal_account_email }}</p>

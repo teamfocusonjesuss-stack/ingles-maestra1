@@ -864,9 +864,18 @@ def pagos():
         if request.method == 'POST':
             action = request.form.get('action', '').strip()
 
+            if action == 'delete_paypal_account':
+                current_user.paypal_account_email = None
+                current_user.paypal_account_name = None
+                db.session.commit()
+                flash('Cuenta PayPal eliminada del perfil de administrador.', 'success')
+                return redirect(url_for('pagos'))
+
             if action == 'save_paypal_account':
                 paypal_account_email = request.form.get('admin_paypal_account_email', '').strip().lower()
                 paypal_account_name = request.form.get('admin_paypal_account_name', '').strip()
+                previous_email = (current_user.paypal_account_email or '').strip().lower()
+                previous_name = (current_user.paypal_account_name or '').strip()
 
                 if not paypal_account_email:
                     current_user.paypal_account_email = None
@@ -885,7 +894,12 @@ def pagos():
                 current_user.paypal_account_email = paypal_account_email
                 current_user.paypal_account_name = paypal_account_name
                 db.session.commit()
-                flash('Cuenta PayPal del administrador guardada.', 'success')
+                if paypal_account_email == previous_email and paypal_account_name == previous_name:
+                    flash('La cuenta PayPal ya estaba guardada con esos mismos datos.', 'info')
+                elif previous_email or previous_name:
+                    flash('Cuenta PayPal del administrador actualizada.', 'success')
+                else:
+                    flash('Cuenta PayPal del administrador guardada.', 'success')
                 return redirect(url_for('pagos'))
 
             if action == 'create_schedule':
