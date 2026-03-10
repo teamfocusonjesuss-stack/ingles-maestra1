@@ -27,6 +27,13 @@
             </form>
         </div>
 
+        {% if not admin_paypal_account_email %}
+        <div class="card" style="margin-top: 14px; border:1px solid rgba(248,113,113,0.45);">
+            <p style="margin:0;"><strong>{{ 'Required step' if current_lang == 'en' else 'Paso obligatorio' }}</strong></p>
+            <p style="margin:6px 0 0 0;">{{ 'Save your PayPal account first. After that, payment scheduling and history options will be enabled.' if current_lang == 'en' else 'Guarda primero tu cuenta PayPal. Después de eso se habilitan las opciones de programación e historial de pagos.' }}</p>
+        </div>
+        {% else %}
+
         <form method="POST" style="margin-top: 20px;">
             <input type="hidden" name="action" value="create_schedule">
             <input type="hidden" name="current_student_id" value="{{ selected_student_id }}">
@@ -142,6 +149,7 @@
                 <p>{{ 'No charges registered yet.' if current_lang == 'en' else 'No hay cobros registrados todavía.' }}</p>
             {% endif %}
         </div>
+        {% endif %}
         {% else %}
         <h1>{{ t('payments_title') }}</h1>
         <p class="subtitle">{{ 'Secure payments portal · scheduled payments are defined by the admin.' if current_lang == 'en' else 'Portal de pagos seguro · los pagos programados los define el administrador.' }}</p>

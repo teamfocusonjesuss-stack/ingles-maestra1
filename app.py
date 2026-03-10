@@ -885,6 +885,10 @@ def pagos():
                 return redirect(url_for('pagos'))
 
             if action == 'create_schedule':
+                if not (current_user.paypal_account_email or '').strip():
+                    flash('Primero guarda tu cuenta PayPal de administrador para continuar.', 'danger')
+                    return redirect(url_for('pagos'))
+
                 student_raw = request.form.get('student_id', '').strip()
                 concept = request.form.get('concept', '').strip()
                 amount_raw = request.form.get('amount', '0').strip()
