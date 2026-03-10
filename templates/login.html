@@ -7,12 +7,6 @@
     <div class="auth-card">
         <h1>{{ t('login_title') }}</h1>
         <p class="subtitle">{{ t('login_subtitle') }}</p>
-        
-        <div class="social-buttons">
-            <a href="#" class="btn-social btn-google">{{ t('login_with_google') }}</a>
-            <a href="#" class="btn-social btn-facebook">{{ t('login_with_facebook') }}</a>
-            <a href="#" class="btn-social btn-apple">{{ t('login_with_apple') }}</a>
-        </div>
 
         <form method="POST" class="form" id="loginForm">
             <div class="form-group">
@@ -30,7 +24,6 @@
         </form>
         
         <div class="auth-footer">
-            <p>{{ t('dont_have_account') }} <a href="{{ url_for('register') }}">{{ t('register_here') }}</a></p>
             <p><a href="{{ url_for('forgot_password') }}">{{ t('forgot_password') }}</a></p>
         </div>
     </div>

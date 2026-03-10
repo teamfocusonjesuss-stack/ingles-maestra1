@@ -3176,13 +3176,29 @@ with app.app_context():
 
     db.session.execute(text("UPDATE user SET session_nonce = COALESCE(session_nonce, 0) + 1"))
 
-    db.session.commit()
+    # limpiar usuarios de prueba para entorno de entrega
+    db.session.execute(
+        text(
+            """
+            DELETE FROM user
+            WHERE LOWER(COALESCE(email, '')) IN ('estudiante@example.com', 'maestro@example.com')
+              AND LOWER(COALESCE(email, '')) <> :fixed_email
+            """
+        ),
+        {'fixed_email': FIXED_ADMIN_EMAIL.lower()}
+    )
 
-    # crear usuarios de prueba si no existen
-    if not User.query.filter_by(username='estudiante').first():
-        u = User(username='estudiante', email='estudiante@example.com',
-                 password=generate_password_hash('123456', method='pbkdf2:sha256'), role='student', nombre='Estudiante')
-        db.session.add(u)
+    db.session.execute(
+        text(
+            """
+            DELETE FROM user
+            WHERE LOWER(COALESCE(username, '')) IN ('estudiante', 'maestro')
+              AND LOWER(COALESCE(email, '')) <> :fixed_email
+            """
+        ),
+        {'fixed_email': FIXED_ADMIN_EMAIL.lower()}
+    )
+
     db.session.commit()
 
 # ============== EJECUTAR ==============
