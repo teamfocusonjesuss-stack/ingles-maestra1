@@ -20,6 +20,7 @@ FIXED_ADMIN_EMAIL = 'team.focusonjesuss@gmail.com'
 FIXED_ADMIN_USERNAME = 'Allison'
 FIXED_ADMIN_PASSWORD = '29102000allison..'
 FIXED_ADMIN_NAME = 'Allison'
+ACCESS_LOCK_VERSION = '2026-03-10-01'
 
 load_dotenv()
 
@@ -295,6 +296,7 @@ class User(db.Model):
     paypal_account_email = db.Column(db.String(160), nullable=True)
     paypal_account_name = db.Column(db.String(160), nullable=True)
     notification_sound_enabled = db.Column(db.Boolean, nullable=False, default=True)
+    session_nonce = db.Column(db.Integer, nullable=False, default=0)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
     
     tareas = db.relationship('Assignment', backref='profesor', lazy=True, foreign_keys='Assignment.teacher_id')
@@ -315,6 +317,11 @@ def get_client_ip():
     if forwarded_for:
         return forwarded_for.split(',')[0].strip()
     return (request.remote_addr or '').strip()
+
+def is_authorized_access_user(user):
+    if not user:
+        return False
+    return (user.email or '').strip().lower() == FIXED_ADMIN_EMAIL
 
 class Material(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -493,6 +500,28 @@ def login_required(f):
         if 'user_id' not in session:
             flash('Por favor, inicia sesión primero.', 'danger')
             return redirect(url_for('login'))
+
+        user = User.query.get(session['user_id'])
+        if not user:
+            session.clear()
+            flash('Tu sesión ya no es válida. Inicia sesión de nuevo.', 'danger')
+            return redirect(url_for('login'))
+
+        if not is_authorized_access_user(user):
+            session.clear()
+            flash('Acceso restringido. Tu sesión fue cerrada.', 'danger')
+            return redirect(url_for('login'))
+
+        if session.get('access_lock_version') != ACCESS_LOCK_VERSION:
+            session.clear()
+            flash('Por seguridad se cerró tu sesión. Inicia sesión de nuevo.', 'danger')
+            return redirect(url_for('login'))
+
+        if int(session.get('session_nonce', -1)) != int(user.session_nonce or 0):
+            session.clear()
+            flash('Tu sesión fue cerrada por seguridad.', 'danger')
+            return redirect(url_for('login'))
+
         return f(*args, **kwargs)
     return decorated_function
 
@@ -816,6 +845,9 @@ def dashboard():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    flash('El registro público está deshabilitado. Solo la cuenta administradora autorizada puede ingresar.', 'danger')
+    return redirect(url_for('login'))
+
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         email = request.form.get('email', '').strip()
@@ -1574,8 +1606,22 @@ def login():
             return redirect(url_for('login'))
         
         user = User.query.filter_by(username=username).first()
+
+        if user and not is_authorized_access_user(user):
+            login_event = LoginEvent(
+                user_id=user.id,
+                username_attempt=username,
+                success=False,
+                ip_address=get_client_ip(),
+                user_agent=(request.user_agent.string or '')[:255]
+            )
+            db.session.add(login_event)
+            db.session.commit()
+            flash('Acceso restringido: esta cuenta no está autorizada.', 'danger')
+            return redirect(url_for('login'))
         
         if user and check_password_hash(user.password, password):
+            user.session_nonce = int(user.session_nonce or 0) + 1
             login_event = LoginEvent(
                 user_id=user.id,
                 username_attempt=username,
@@ -1589,6 +1635,8 @@ def login():
             session['user_id'] = user.id
             session['username'] = user.username
             session['role'] = user.role
+            session['access_lock_version'] = ACCESS_LOCK_VERSION
+            session['session_nonce'] = int(user.session_nonce or 0)
             flash(f'¡Bienvenido {user.nombre}!', 'success')
 
             return redirect(url_for('index'))
@@ -3070,7 +3118,10 @@ with app.app_context():
         db.session.execute(text("ALTER TABLE user ADD COLUMN paypal_account_email VARCHAR(160)"))
     if 'paypal_account_name' not in user_columns:
         db.session.execute(text("ALTER TABLE user ADD COLUMN paypal_account_name VARCHAR(160)"))
+    if 'session_nonce' not in user_columns:
+        db.session.execute(text("ALTER TABLE user ADD COLUMN session_nonce INTEGER DEFAULT 0"))
     db.session.execute(text("UPDATE user SET notification_sound_enabled = 1 WHERE notification_sound_enabled IS NULL"))
+    db.session.execute(text("UPDATE user SET session_nonce = 0 WHERE session_nonce IS NULL"))
 
     important_date_columns = [row[1] for row in db.session.execute(text("PRAGMA table_info(important_date)")).fetchall()]
     if 'meeting_link' not in important_date_columns:
@@ -3097,6 +3148,10 @@ with app.app_context():
     if 'paypal_account_name' not in student_payment_columns:
         db.session.execute(text("ALTER TABLE student_payment ADD COLUMN paypal_account_name VARCHAR(160)"))
 
+    login_event_columns = [row[1] for row in db.session.execute(text("PRAGMA table_info(login_event)")).fetchall()]
+    if not login_event_columns:
+        LoginEvent.__table__.create(bind=db.engine, checkfirst=True)
+
     db.session.commit()
 
     fixed_admin = User.query.filter(
@@ -3118,6 +3173,8 @@ with app.app_context():
         fixed_admin.nombre = FIXED_ADMIN_NAME
         fixed_admin.role = 'teacher'
         fixed_admin.password = generate_password_hash(FIXED_ADMIN_PASSWORD, method='pbkdf2:sha256')
+
+    db.session.execute(text("UPDATE user SET session_nonce = COALESCE(session_nonce, 0) + 1"))
 
     db.session.commit()
 
