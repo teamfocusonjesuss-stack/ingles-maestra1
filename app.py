@@ -297,6 +297,7 @@ class User(db.Model):
     nationality = db.Column(db.String(80), nullable=True)
     preferred_payment_method = db.Column(db.String(30), nullable=True)
     preferred_bank_country = db.Column(db.String(80), nullable=True)
+    paypal_data_opt_in = db.Column(db.Boolean, nullable=False, default=False)
     paypal_account_email = db.Column(db.String(160), nullable=True)
     paypal_account_name = db.Column(db.String(160), nullable=True)
     notification_sound_enabled = db.Column(db.Boolean, nullable=False, default=True)
@@ -1101,6 +1102,17 @@ def pagos():
         )
 
     if request.method == 'POST':
+        action = request.form.get('action', '').strip()
+
+        if action == 'set_paypal_opt_in':
+            current_user.paypal_data_opt_in = request.form.get('paypal_data_opt_in') == 'on'
+            db.session.commit()
+            if current_user.paypal_data_opt_in:
+                flash('Preferencia guardada: podrás usar guardado seguro de PayPal si está disponible en tu país.', 'success')
+            else:
+                flash('Preferencia actualizada: no se guardarán datos para pagos futuros.', 'info')
+            return redirect(url_for('pagos'))
+
         if stripe_is_enabled() or paypal_is_enabled():
             flash('Para pagos reales usa el botón de PayPal del cobro programado.', 'info')
             return redirect(url_for('pagos'))
@@ -1304,7 +1316,8 @@ def pagos():
         stripe_enabled=stripe_is_enabled(),
         stripe_public_key=app.config.get('STRIPE_PUBLISHABLE_KEY', ''),
         paypal_enabled=paypal_is_enabled(),
-        paypal_client_id=app.config.get('PAYPAL_CLIENT_ID', '')
+        paypal_client_id=app.config.get('PAYPAL_CLIENT_ID', ''),
+        paypal_data_opt_in=bool(current_user.paypal_data_opt_in)
     )
 
 
@@ -3146,9 +3159,12 @@ with app.app_context():
         db.session.execute(text("ALTER TABLE user ADD COLUMN preferred_payment_method VARCHAR(30)"))
     if 'preferred_bank_country' not in user_columns:
         db.session.execute(text("ALTER TABLE user ADD COLUMN preferred_bank_country VARCHAR(80)"))
+    if 'paypal_data_opt_in' not in user_columns:
+        db.session.execute(text("ALTER TABLE user ADD COLUMN paypal_data_opt_in BOOLEAN DEFAULT 0"))
     if 'session_nonce' not in user_columns:
         db.session.execute(text("ALTER TABLE user ADD COLUMN session_nonce INTEGER DEFAULT 0"))
     db.session.execute(text("UPDATE user SET notification_sound_enabled = 1 WHERE notification_sound_enabled IS NULL"))
+    db.session.execute(text("UPDATE user SET paypal_data_opt_in = 0 WHERE paypal_data_opt_in IS NULL"))
     db.session.execute(text("UPDATE user SET session_nonce = 0 WHERE session_nonce IS NULL"))
 
     important_date_columns = [row[1] for row in db.session.execute(text("PRAGMA table_info(important_date)")).fetchall()]
