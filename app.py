@@ -301,6 +301,21 @@ class User(db.Model):
     entregas = db.relationship('Submission', backref='estudiante', lazy=True)
     materiales = db.relationship('Material', backref='usuario', lazy=True, foreign_keys='Material.user_id')
 
+class LoginEvent(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    username_attempt = db.Column(db.String(120), nullable=False)
+    success = db.Column(db.Boolean, nullable=False, default=False)
+    ip_address = db.Column(db.String(80), nullable=True)
+    user_agent = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+def get_client_ip():
+    forwarded_for = request.headers.get('X-Forwarded-For', '').strip()
+    if forwarded_for:
+        return forwarded_for.split(',')[0].strip()
+    return (request.remote_addr or '').strip()
+
 class Material(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     titulo = db.Column(db.String(120), nullable=False)
@@ -806,7 +821,7 @@ def register():
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
         confirm_password = request.form.get('confirm_password', '')
-        role = request.form.get('role', 'student')
+        role = 'student'
         nombre = request.form.get('nombre', '').strip()
         
         # Validaciones
@@ -1561,6 +1576,16 @@ def login():
         user = User.query.filter_by(username=username).first()
         
         if user and check_password_hash(user.password, password):
+            login_event = LoginEvent(
+                user_id=user.id,
+                username_attempt=username,
+                success=True,
+                ip_address=get_client_ip(),
+                user_agent=(request.user_agent.string or '')[:255]
+            )
+            db.session.add(login_event)
+            db.session.commit()
+
             session['user_id'] = user.id
             session['username'] = user.username
             session['role'] = user.role
@@ -1568,6 +1593,15 @@ def login():
 
             return redirect(url_for('index'))
         else:
+            login_event = LoginEvent(
+                user_id=None,
+                username_attempt=username if username else '(vacío)',
+                success=False,
+                ip_address=get_client_ip(),
+                user_agent=(request.user_agent.string or '')[:255]
+            )
+            db.session.add(login_event)
+            db.session.commit()
             flash('Usuario o contraseña incorrectos.', 'danger')
     
     return render_template('login.html')
@@ -1577,6 +1611,27 @@ def logout():
     session.clear()
     flash('Sesión cerrada correctamente.', 'success')
     return redirect(url_for('login'))
+
+@app.route('/admin/login-events')
+@login_required
+def admin_login_events():
+    current_user = User.query.get(session['user_id'])
+    if not current_user or current_user.role != 'teacher':
+        flash('No tienes permisos para ver este registro.', 'danger')
+        return redirect(url_for('index'))
+
+    events = LoginEvent.query.order_by(LoginEvent.created_at.desc()).limit(100).all()
+    return jsonify([
+        {
+            'id': event.id,
+            'username_attempt': event.username_attempt,
+            'success': event.success,
+            'ip_address': event.ip_address,
+            'user_agent': event.user_agent,
+            'created_at': event.created_at.strftime('%Y-%m-%d %H:%M:%S') if event.created_at else None
+        }
+        for event in events
+    ])
 
 # ============== RUTAS DE PERFIL ==============
 
