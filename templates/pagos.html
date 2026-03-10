@@ -9,6 +9,12 @@
         <h1>{{ 'Student payments registry' if current_lang == 'en' else 'Registro de pagos de estudiantes' }}</h1>
         <p class="subtitle">{{ 'As admin, schedule charges per student with date and amount, and mark them as paid.' if current_lang == 'en' else 'Como administrador, programa cobros por estudiante con fecha y monto, y marca cuando se realicen.' }}</p>
 
+        <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
+            <button type="button" id="tab_btn_paypal_account" class="btn btn-secondary">{{ 'PayPal account' if current_lang == 'en' else 'Cuenta PayPal' }}</button>
+            <button type="button" id="tab_btn_student_payments" class="btn btn-secondary">{{ 'Student payments' if current_lang == 'en' else 'Pagos estudiantes' }}</button>
+        </div>
+
+        <div id="tab_paypal_account" style="margin-top: 12px;">
         <div class="card" style="margin-top: 18px;">
             <h3 style="margin-bottom: 8px;">{{ 'PayPal account (administrator)' if current_lang == 'en' else 'Cuenta PayPal (administrador)' }}</h3>
             <form method="POST" style="display:grid; gap:10px;">
@@ -26,6 +32,9 @@
                 </div>
             </form>
         </div>
+        </div>
+
+        <div id="tab_student_payments" style="margin-top: 12px; display:none;">
 
         {% if not admin_paypal_account_email %}
         <div class="card" style="margin-top: 14px; border:1px solid rgba(248,113,113,0.45);">
@@ -150,6 +159,7 @@
             {% endif %}
         </div>
         {% endif %}
+        </div>
         {% else %}
         <h1>{{ t('payments_title') }}</h1>
         <p class="subtitle">{{ 'Secure payments portal · scheduled payments are defined by the admin.' if current_lang == 'en' else 'Portal de pagos seguro · los pagos programados los define el administrador.' }}</p>
@@ -676,6 +686,32 @@ document.addEventListener('DOMContentLoaded', () => {
         scheduleSelect.addEventListener('change', updatePaypalDestination);
         updatePaypalDestination();
     }
+});
+</script>
+{% else %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const paypalTabButton = document.getElementById('tab_btn_paypal_account');
+    const studentTabButton = document.getElementById('tab_btn_student_payments');
+    const paypalTab = document.getElementById('tab_paypal_account');
+    const studentTab = document.getElementById('tab_student_payments');
+
+    if (!paypalTabButton || !studentTabButton || !paypalTab || !studentTab) {
+        return;
+    }
+
+    const setActiveTab = (tabName) => {
+        const isPaypalTab = tabName === 'paypal';
+        paypalTab.style.display = isPaypalTab ? 'block' : 'none';
+        studentTab.style.display = isPaypalTab ? 'none' : 'block';
+
+        paypalTabButton.className = isPaypalTab ? 'btn btn-primary' : 'btn btn-secondary';
+        studentTabButton.className = isPaypalTab ? 'btn btn-secondary' : 'btn btn-primary';
+    };
+
+    paypalTabButton.addEventListener('click', () => setActiveTab('paypal'));
+    studentTabButton.addEventListener('click', () => setActiveTab('student'));
+    setActiveTab('paypal');
 });
 </script>
 {% endif %}
