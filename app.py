@@ -36,6 +36,7 @@ app.config['STRIPE_WEBHOOK_SECRET'] = os.getenv('STRIPE_WEBHOOK_SECRET', '').str
 app.config['PAYPAL_CLIENT_ID'] = os.getenv('PAYPAL_CLIENT_ID', '').strip()
 app.config['PAYPAL_CLIENT_SECRET'] = os.getenv('PAYPAL_CLIENT_SECRET', '').strip()
 app.config['PAYPAL_MODE'] = os.getenv('PAYPAL_MODE', 'sandbox').strip().lower()
+app.config['ALLOW_PUBLIC_REGISTRATION'] = os.getenv('ALLOW_PUBLIC_REGISTRATION', '0').strip() == '1'
 
 if app.config['STRIPE_SECRET_KEY']:
     stripe.api_key = app.config['STRIPE_SECRET_KEY']
@@ -293,6 +294,9 @@ class User(db.Model):
     role = db.Column(db.String(20), nullable=False, default='student')  # teacher o student
     nombre = db.Column(db.String(120), nullable=True)
     bio = db.Column(db.Text, nullable=True)
+    nationality = db.Column(db.String(80), nullable=True)
+    preferred_payment_method = db.Column(db.String(30), nullable=True)
+    preferred_bank_country = db.Column(db.String(80), nullable=True)
     paypal_account_email = db.Column(db.String(160), nullable=True)
     paypal_account_name = db.Column(db.String(160), nullable=True)
     notification_sound_enabled = db.Column(db.Boolean, nullable=False, default=True)
@@ -845,8 +849,9 @@ def dashboard():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    flash('El registro público está deshabilitado. Solo la cuenta administradora autorizada puede ingresar.', 'danger')
-    return redirect(url_for('login'))
+    if not app.config.get('ALLOW_PUBLIC_REGISTRATION', False):
+        flash('El registro público está deshabilitado. Solo la cuenta administradora autorizada puede ingresar.', 'danger')
+        return redirect(url_for('login'))
 
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
@@ -855,6 +860,9 @@ def register():
         confirm_password = request.form.get('confirm_password', '')
         role = 'student'
         nombre = request.form.get('nombre', '').strip()
+        nationality = request.form.get('nationality', '').strip()
+        preferred_payment_method = request.form.get('preferred_payment_method', '').strip()
+        preferred_bank_country = request.form.get('preferred_bank_country', '').strip()
         
         # Validaciones
         if not username or not email or not password:
@@ -883,7 +891,10 @@ def register():
             email=email,
             password=generate_password_hash(password, method='pbkdf2:sha256'),
             role=role,
-            nombre=nombre if nombre else username
+            nombre=nombre if nombre else username,
+            nationality=nationality if nationality else None,
+            preferred_payment_method=preferred_payment_method if preferred_payment_method else None,
+            preferred_bank_country=preferred_bank_country if preferred_bank_country else None
         )
         
         try:
@@ -1691,6 +1702,9 @@ def profile():
     if request.method == 'POST':
         user.nombre = request.form.get('nombre', user.nombre).strip()
         user.bio = request.form.get('bio', user.bio)
+        user.nationality = request.form.get('nationality', '').strip() or None
+        user.preferred_payment_method = request.form.get('preferred_payment_method', '').strip() or None
+        user.preferred_bank_country = request.form.get('preferred_bank_country', '').strip() or None
         new_password = request.form.get('new_password', '').strip()
         user.notification_sound_enabled = request.form.get('notification_sound_enabled') == 'on'
         
@@ -3118,6 +3132,12 @@ with app.app_context():
         db.session.execute(text("ALTER TABLE user ADD COLUMN paypal_account_email VARCHAR(160)"))
     if 'paypal_account_name' not in user_columns:
         db.session.execute(text("ALTER TABLE user ADD COLUMN paypal_account_name VARCHAR(160)"))
+    if 'nationality' not in user_columns:
+        db.session.execute(text("ALTER TABLE user ADD COLUMN nationality VARCHAR(80)"))
+    if 'preferred_payment_method' not in user_columns:
+        db.session.execute(text("ALTER TABLE user ADD COLUMN preferred_payment_method VARCHAR(30)"))
+    if 'preferred_bank_country' not in user_columns:
+        db.session.execute(text("ALTER TABLE user ADD COLUMN preferred_bank_country VARCHAR(80)"))
     if 'session_nonce' not in user_columns:
         db.session.execute(text("ALTER TABLE user ADD COLUMN session_nonce INTEGER DEFAULT 0"))
     db.session.execute(text("UPDATE user SET notification_sound_enabled = 1 WHERE notification_sound_enabled IS NULL"))

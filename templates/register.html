@@ -29,6 +29,26 @@
                 <label for="email">{{ t('email') }}</label>
                 <input type="email" id="email" name="email" placeholder="tu@email.com" required>
             </div>
+
+            <div class="form-group">
+                <label for="nationality">Nacionalidad</label>
+                <input type="text" id="nationality" name="nationality" placeholder="Ej: Colombiana, Mexicana, Española">
+            </div>
+
+            <div class="form-group">
+                <label for="preferred_bank_country">País donde usarás banco</label>
+                <input type="text" id="preferred_bank_country" name="preferred_bank_country" placeholder="Ej: Colombia, México, Estados Unidos">
+            </div>
+
+            <div class="form-group">
+                <label for="preferred_payment_method">Método preferido de pago</label>
+                <select id="preferred_payment_method" name="preferred_payment_method">
+                    <option value="">Seleccionar</option>
+                    <option value="paypal">PayPal</option>
+                    <option value="credit_card">Tarjeta de crédito</option>
+                    <option value="bank_account">Cuenta bancaria</option>
+                </select>
+            </div>
             
             <div class="form-group">
                 <label for="password">{{ t('password') }}</label>

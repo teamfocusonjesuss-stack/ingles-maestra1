@@ -36,6 +36,26 @@
                     <label for="bio">{{ t('biography') }}</label>
                     <textarea id="bio" name="bio" placeholder="{{ t('tell_us_about_you') }}" rows="4">{{ user.bio or '' }}</textarea>
                 </div>
+
+                <div class="form-group">
+                    <label for="nationality">Nacionalidad</label>
+                    <input type="text" id="nationality" name="nationality" value="{{ user.nationality or '' }}" placeholder="Ej: Colombiana, Mexicana, Española">
+                </div>
+
+                <div class="form-group">
+                    <label for="preferred_bank_country">País donde usarás banco</label>
+                    <input type="text" id="preferred_bank_country" name="preferred_bank_country" value="{{ user.preferred_bank_country or '' }}" placeholder="Ej: Colombia, México, Estados Unidos">
+                </div>
+
+                <div class="form-group">
+                    <label for="preferred_payment_method">Método preferido de pago</label>
+                    <select id="preferred_payment_method" name="preferred_payment_method">
+                        <option value="" {% if not user.preferred_payment_method %}selected{% endif %}>Seleccionar</option>
+                        <option value="paypal" {% if user.preferred_payment_method == 'paypal' %}selected{% endif %}>PayPal</option>
+                        <option value="credit_card" {% if user.preferred_payment_method == 'credit_card' %}selected{% endif %}>Tarjeta de crédito</option>
+                        <option value="bank_account" {% if user.preferred_payment_method == 'bank_account' %}selected{% endif %}>Cuenta bancaria</option>
+                    </select>
+                </div>
                 
                 <div class="form-group">
                     <label for="new_password">{{ t('new_password_optional') }}</label>
