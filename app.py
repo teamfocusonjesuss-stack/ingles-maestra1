@@ -287,6 +287,8 @@ class User(db.Model):
     role = db.Column(db.String(20), nullable=False, default='student')  # teacher o student
     nombre = db.Column(db.String(120), nullable=True)
     bio = db.Column(db.Text, nullable=True)
+    paypal_account_email = db.Column(db.String(160), nullable=True)
+    paypal_account_name = db.Column(db.String(160), nullable=True)
     notification_sound_enabled = db.Column(db.Boolean, nullable=False, default=True)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -857,6 +859,31 @@ def pagos():
         if request.method == 'POST':
             action = request.form.get('action', '').strip()
 
+            if action == 'save_paypal_account':
+                paypal_account_email = request.form.get('admin_paypal_account_email', '').strip().lower()
+                paypal_account_name = request.form.get('admin_paypal_account_name', '').strip()
+
+                if not paypal_account_email:
+                    current_user.paypal_account_email = None
+                    current_user.paypal_account_name = None
+                    db.session.commit()
+                    flash('Cuenta PayPal eliminada del perfil de administrador.', 'success')
+                    return redirect(url_for('pagos'))
+
+                if '@' not in paypal_account_email:
+                    flash('El correo de la cuenta PayPal no es válido.', 'danger')
+                    return redirect(url_for('pagos'))
+
+                if not paypal_account_name:
+                    flash('Ingresa el nombre del titular de la cuenta PayPal.', 'danger')
+                    return redirect(url_for('pagos'))
+
+                current_user.paypal_account_email = paypal_account_email
+                current_user.paypal_account_name = paypal_account_name
+                db.session.commit()
+                flash('Cuenta PayPal del administrador guardada.', 'success')
+                return redirect(url_for('pagos'))
+
             if action == 'create_schedule':
                 student_raw = request.form.get('student_id', '').strip()
                 concept = request.form.get('concept', '').strip()
@@ -864,8 +891,6 @@ def pagos():
                 currency = request.form.get('currency', 'USD').strip().upper()
                 due_date_raw = request.form.get('due_date', '').strip()
                 notes = request.form.get('notes', '').strip()
-                paypal_account_email = request.form.get('paypal_account_email', '').strip().lower()
-                paypal_account_name = request.form.get('paypal_account_name', '').strip()
                 keep_filters = request.form.get('keep_filters', '1') == '1'
                 selected_student_raw = request.form.get('current_student_id', '').strip()
                 selected_status = request.form.get('current_status', 'all').strip().lower()
@@ -892,13 +917,8 @@ def pagos():
                     flash('Ingresa el concepto del cobro.', 'danger')
                     return redirect(url_for('pagos'))
 
-                if paypal_account_email and '@' not in paypal_account_email:
-                    flash('El correo de PayPal del administrador no es válido.', 'danger')
-                    return redirect(url_for('pagos'))
-
-                if paypal_account_email and not paypal_account_name:
-                    flash('Ingresa el nombre del titular de la cuenta PayPal.', 'danger')
-                    return redirect(url_for('pagos'))
+                paypal_account_email = (current_user.paypal_account_email or '').strip().lower()
+                paypal_account_name = (current_user.paypal_account_name or '').strip()
 
                 try:
                     due_date = datetime.strptime(due_date_raw, '%Y-%m-%d').date()
@@ -992,7 +1012,9 @@ def pagos():
             scheduled_payments=payments,
             student_map=student_map,
             selected_student_id=selected_student_raw,
-            selected_status=selected_status
+            selected_status=selected_status,
+            admin_paypal_account_email=current_user.paypal_account_email or '',
+            admin_paypal_account_name=current_user.paypal_account_name or ''
         )
 
     if request.method == 'POST':
@@ -1094,19 +1116,17 @@ def pagos():
             secure_hash = hashlib.sha256(f"{apple_email}:{apple_name}:{apple_country_code}:{apple_phone}".encode('utf-8')).hexdigest()
 
         elif method_type == 'paypal':
-            paypal_email = request.form.get('paypal_email', '').strip()
-            paypal_name = request.form.get('paypal_name', '').strip()
-            paypal_country_code = request.form.get('paypal_country_code', '').strip()
-            paypal_phone = request.form.get('paypal_phone', '').strip()
+            paypal_target_email = (selected_schedule.paypal_account_email or '').strip()
+            paypal_target_name = (selected_schedule.paypal_account_name or '').strip()
 
-            if '@' not in paypal_email or not paypal_name or not paypal_country_code or len(paypal_phone) < 7:
-                flash('Completa correo, nombre, país y teléfono de PayPal válidos.', 'danger')
+            if not paypal_target_email:
+                flash('Este cobro no tiene cuenta PayPal configurada por el administrador.', 'danger')
                 return redirect(url_for('pagos'))
 
-            local, domain = paypal_email.split('@', 1)
+            local, domain = paypal_target_email.split('@', 1)
             masked_local = (local[:2] + '***') if len(local) >= 2 else '***'
-            display_value = f"PayPal {masked_local}@{domain}"
-            secure_hash = hashlib.sha256(f"{paypal_email}:{paypal_name}:{paypal_country_code}:{paypal_phone}".encode('utf-8')).hexdigest()
+            display_value = f"PayPal destino {masked_local}@{domain}"
+            secure_hash = hashlib.sha256(f"{paypal_target_email}:{paypal_target_name}:{selected_schedule.id}".encode('utf-8')).hexdigest()
 
         elif method_type == 'binance':
             binance_id = request.form.get('binance_id', '').strip()
@@ -2969,6 +2989,10 @@ with app.app_context():
     user_columns = [row[1] for row in db.session.execute(text("PRAGMA table_info(user)")).fetchall()]
     if 'notification_sound_enabled' not in user_columns:
         db.session.execute(text("ALTER TABLE user ADD COLUMN notification_sound_enabled BOOLEAN DEFAULT 1"))
+    if 'paypal_account_email' not in user_columns:
+        db.session.execute(text("ALTER TABLE user ADD COLUMN paypal_account_email VARCHAR(160)"))
+    if 'paypal_account_name' not in user_columns:
+        db.session.execute(text("ALTER TABLE user ADD COLUMN paypal_account_name VARCHAR(160)"))
     db.session.execute(text("UPDATE user SET notification_sound_enabled = 1 WHERE notification_sound_enabled IS NULL"))
 
     important_date_columns = [row[1] for row in db.session.execute(text("PRAGMA table_info(important_date)")).fetchall()]

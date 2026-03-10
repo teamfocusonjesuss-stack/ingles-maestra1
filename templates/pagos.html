@@ -9,6 +9,24 @@
         <h1>{{ 'Student payments registry' if current_lang == 'en' else 'Registro de pagos de estudiantes' }}</h1>
         <p class="subtitle">{{ 'As admin, schedule charges per student with date and amount, and mark them as paid.' if current_lang == 'en' else 'Como administrador, programa cobros por estudiante con fecha y monto, y marca cuando se realicen.' }}</p>
 
+        <div class="card" style="margin-top: 18px;">
+            <h3 style="margin-bottom: 8px;">{{ 'PayPal account (administrator)' if current_lang == 'en' else 'Cuenta PayPal (administrador)' }}</h3>
+            <form method="POST" style="display:grid; gap:10px;">
+                <input type="hidden" name="action" value="save_paypal_account">
+                <div class="form-group" style="margin:0;">
+                    <label for="admin_paypal_account_email">{{ 'PayPal email' if current_lang == 'en' else 'Correo PayPal' }}</label>
+                    <input type="email" id="admin_paypal_account_email" name="admin_paypal_account_email" value="{{ admin_paypal_account_email }}" placeholder="{{ 'teacher@paypal.com' if current_lang == 'en' else 'docente@paypal.com' }}">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label for="admin_paypal_account_name">{{ 'Account holder name' if current_lang == 'en' else 'Nombre del titular' }}</label>
+                    <input type="text" id="admin_paypal_account_name" name="admin_paypal_account_name" value="{{ admin_paypal_account_name }}" placeholder="{{ 'Full name' if current_lang == 'en' else 'Nombre completo' }}">
+                </div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button type="submit" class="btn btn-secondary">{{ 'Save PayPal account' if current_lang == 'en' else 'Guardar cuenta PayPal' }}</button>
+                </div>
+            </form>
+        </div>
+
         <form method="POST" style="margin-top: 20px;">
             <input type="hidden" name="action" value="create_schedule">
             <input type="hidden" name="current_student_id" value="{{ selected_student_id }}">
@@ -51,16 +69,6 @@
             <div class="form-group">
                 <label for="notes">{{ 'Notes (optional)' if current_lang == 'en' else 'Notas (opcional)' }}</label>
                 <input type="text" id="notes" name="notes" placeholder="{{ 'Additional charge details' if current_lang == 'en' else 'Detalle adicional del cobro' }}">
-            </div>
-
-            <div class="form-group">
-                <label for="paypal_account_email">{{ 'PayPal account for deposit (optional)' if current_lang == 'en' else 'Cuenta PayPal para depósito (opcional)' }}</label>
-                <input type="email" id="paypal_account_email" name="paypal_account_email" placeholder="{{ 'teacher@paypal.com' if current_lang == 'en' else 'docente@paypal.com' }}">
-            </div>
-
-            <div class="form-group">
-                <label for="paypal_account_name">{{ 'PayPal account holder (optional)' if current_lang == 'en' else 'Titular de la cuenta PayPal (opcional)' }}</label>
-                <input type="text" id="paypal_account_name" name="paypal_account_name" placeholder="{{ 'Account holder name' if current_lang == 'en' else 'Nombre del titular' }}">
             </div>
 
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
@@ -202,7 +210,7 @@
                 <select id="schedule_id" name="schedule_id" required>
                     <option value="">Seleccionar pago programado</option>
                     {% for payment in upcoming_payments %}
-                    <option value="{{ payment.id }}">{{ payment.concept }} · {{ '%.2f'|format(payment.amount) }} {{ payment.currency }} · {{ payment.due_date.strftime('%d/%m/%Y') }}</option>
+                    <option value="{{ payment.id }}" data-paypal-name="{{ payment.paypal_account_name or '' }}" data-paypal-email="{{ payment.paypal_account_email or '' }}">{{ payment.concept }} · {{ '%.2f'|format(payment.amount) }} {{ payment.currency }} · {{ payment.due_date.strftime('%d/%m/%Y') }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -276,21 +284,11 @@
             </div>
 
             <div id="paypal_fields" style="display:none;">
-                <h3 style="margin-top:6px;">Datos PayPal</h3>
-                <div class="form-group">
-                    <label for="paypal_email">Correo de PayPal</label>
-                    <input type="email" id="paypal_email" name="paypal_email" placeholder="usuario@paypal.com">
-                </div>
-                <div class="form-group">
-                    <label for="paypal_name">Nombre del titular</label>
-                    <input type="text" id="paypal_name" name="paypal_name" placeholder="Nombre completo">
-                </div>
-                <div class="form-group">
-                    <label for="paypal_phone">Teléfono</label>
-                    <div style="display:grid; grid-template-columns: 130px 1fr; gap:10px;">
-                        <select id="paypal_country_code" class="country-code-select" name="paypal_country_code"></select>
-                        <input type="text" id="paypal_phone" name="paypal_phone" placeholder="3000000000">
-                    </div>
+                <h3 style="margin-top:6px;">Cuenta PayPal del administrador</h3>
+                <div class="card" style="margin:0;">
+                    <p style="margin:0; opacity:0.9;">Al seleccionar un pago programado verás aquí la cuenta PayPal destino para hacer el depósito.</p>
+                    <p id="paypal_destination_name" style="margin:8px 0 0 0;"><strong>Titular:</strong> -</p>
+                    <p id="paypal_destination_email" style="margin:4px 0 0 0;"><strong>Correo:</strong> -</p>
                 </div>
             </div>
 
@@ -644,6 +642,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     fillCountryCodeSelects();
     togglePaymentFields();
+
+    const scheduleSelect = document.getElementById('schedule_id');
+    const destinationName = document.getElementById('paypal_destination_name');
+    const destinationEmail = document.getElementById('paypal_destination_email');
+
+    const updatePaypalDestination = () => {
+        if (!scheduleSelect || !destinationName || !destinationEmail) {
+            return;
+        }
+        const selected = scheduleSelect.options[scheduleSelect.selectedIndex];
+        if (!selected) {
+            destinationName.innerHTML = '<strong>Titular:</strong> -';
+            destinationEmail.innerHTML = '<strong>Correo:</strong> -';
+            return;
+        }
+
+        const name = selected.getAttribute('data-paypal-name') || '';
+        const email = selected.getAttribute('data-paypal-email') || '';
+        destinationName.innerHTML = `<strong>Titular:</strong> ${name || '-'}`;
+        destinationEmail.innerHTML = `<strong>Correo:</strong> ${email || '-'}`;
+    };
+
+    if (scheduleSelect) {
+        scheduleSelect.addEventListener('change', updatePaypalDestination);
+        updatePaypalDestination();
+    }
 });
 </script>
 {% endif %}
