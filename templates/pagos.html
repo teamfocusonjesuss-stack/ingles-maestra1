@@ -225,6 +225,7 @@
                     {% endif %}
                     {% if paypal_enabled %}
                     <div style="margin-top: 10px;">
+                        <p style="margin:0 0 8px 0; font-size:13px; opacity:0.85;">{{ 'PayPal will show available options in your country (balance, card or bank).' if current_lang == 'en' else 'PayPal mostrará las opciones disponibles en tu país (saldo, tarjeta o banco).' }}</p>
                         <div id="paypal-button-container-{{ payment.id }}" class="paypal-button-container" data-schedule-id="{{ payment.id }}"></div>
                     </div>
                     {% endif %}
@@ -235,7 +236,7 @@
             {% endif %}
         </div>
 
-        {% if not stripe_enabled %}
+        {% if not stripe_enabled and not paypal_enabled %}
 
         <form method="POST" style="margin-top: 20px;">
             <div class="form-group">

@@ -36,7 +36,7 @@ app.config['STRIPE_WEBHOOK_SECRET'] = os.getenv('STRIPE_WEBHOOK_SECRET', '').str
 app.config['PAYPAL_CLIENT_ID'] = os.getenv('PAYPAL_CLIENT_ID', '').strip()
 app.config['PAYPAL_CLIENT_SECRET'] = os.getenv('PAYPAL_CLIENT_SECRET', '').strip()
 app.config['PAYPAL_MODE'] = os.getenv('PAYPAL_MODE', 'sandbox').strip().lower()
-app.config['ALLOW_PUBLIC_REGISTRATION'] = os.getenv('ALLOW_PUBLIC_REGISTRATION', '0').strip() == '1'
+app.config['ALLOW_PUBLIC_REGISTRATION'] = os.getenv('ALLOW_PUBLIC_REGISTRATION', '1').strip() == '1'
 
 if app.config['STRIPE_SECRET_KEY']:
     stripe.api_key = app.config['STRIPE_SECRET_KEY']
@@ -325,7 +325,10 @@ def get_client_ip():
 def is_authorized_access_user(user):
     if not user:
         return False
-    return (user.email or '').strip().lower() == FIXED_ADMIN_EMAIL
+    user_email = (user.email or '').strip().lower()
+    if user_email == FIXED_ADMIN_EMAIL:
+        return True
+    return user.role == 'student'
 
 class Material(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -1098,13 +1101,18 @@ def pagos():
         )
 
     if request.method == 'POST':
-        if stripe_is_enabled():
-            flash('Para pagos reales usa el botón "Pagar ahora" del cobro programado.', 'info')
+        if stripe_is_enabled() or paypal_is_enabled():
+            flash('Para pagos reales usa el botón de PayPal del cobro programado.', 'info')
             return redirect(url_for('pagos'))
 
         method_type = request.form.get('method_type', '').strip()
         save_method = request.form.get('save_method') == 'on'
         set_default = request.form.get('is_default') == 'on'
+
+        if method_type != 'paypal':
+            flash('La forma de pago habilitada es PayPal.', 'danger')
+            return redirect(url_for('pagos'))
+
         amount_raw = request.form.get('amount', '0').strip()
         currency = request.form.get('currency', 'USD').strip().upper()
         payment_note = request.form.get('payment_note', '').strip()
