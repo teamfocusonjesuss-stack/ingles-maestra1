@@ -2003,15 +2003,29 @@ def course_detail(course_id):
         ).filter(CoursePage.is_published.is_(True))
     pages = pages_query.order_by(CoursePage.created_at.desc()).all()
     events = CourseCalendarEvent.query.filter_by(course_id=course.id).order_by(CourseCalendarEvent.event_date.asc()).all()
-    links = CourseLink.query.filter_by(course_id=course.id).order_by(CourseLink.created_at.desc()).all()
     teacher = User.query.get(course.teacher_id)
     students = User.query.filter_by(role='student').order_by(User.nombre.asc()).all() if current_user.role == 'teacher' else []
     students_map = {student.id: student for student in students}
 
     if current_user.role == 'teacher':
-        return render_template('course_detail_teacher.html', course=course, pages=pages, events=events, links=links, teacher=teacher, students=students, students_map=students_map)
+        return render_template('course_detail_teacher.html', course=course, pages=pages, events=events, teacher=teacher, students=students, students_map=students_map)
 
-    return render_template('course_detail_student.html', course=course, pages=pages, events=events, links=links, teacher=teacher)
+    return render_template('course_detail_student.html', course=course, pages=pages, events=events, teacher=teacher)
+
+@app.route('/courses/<int:course_id>/links')
+@login_required
+def course_links(course_id):
+    current_user = User.query.get(session['user_id'])
+    course = Course.query.get_or_404(course_id)
+
+    if current_user.role == 'teacher' and course.teacher_id != current_user.id:
+        flash('No tienes permiso para ver este curso.', 'danger')
+        return redirect(url_for('courses'))
+
+    links = CourseLink.query.filter_by(course_id=course.id).order_by(CourseLink.created_at.desc()).all()
+    is_teacher = current_user.role == 'teacher' and course.teacher_id == current_user.id
+
+    return render_template('course_links.html', course=course, links=links, is_teacher=is_teacher)
 
 @app.route('/courses/<int:course_id>/pages/new', methods=['POST'])
 @teacher_only

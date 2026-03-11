@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Enlaces - {{ course.title }}{% endblock %}
+
+{% block content %}
+<div class="container course-space">
+    <div class="card">
+        <div class="course-header-row">
+            <div>
+                <h1>Enlaces - {{ course.title }}</h1>
+                <p>{{ course.description or 'Sin descripción del curso.' }}</p>
+            </div>
+            <a class="btn btn-secondary" href="{{ url_for('course_detail', course_id=course.id) }}">Volver al curso</a>
+        </div>
+    </div>
+
+    <div class="course-grid" style="grid-template-columns: 1fr;">
+        {% if is_teacher %}
+            <div class="card">
+                <h2>Agregar enlace</h2>
+                <form method="POST" action="{{ url_for('course_link_new', course_id=course.id) }}" class="form">
+                    <div class="form-group">
+                        <label for="link_name">Nombre del enlace</label>
+                        <input id="link_name" name="link_name" type="text" required placeholder="Ej: Video tutorial">
+                    </div>
+                    <div class="form-group">
+                        <label for="link_url">URL</label>
+                        <input id="link_url" name="link_url" type="url" required placeholder="https://ejemplo.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="link_description">Descripción</label>
+                        <textarea id="link_description" name="link_description" rows="2" placeholder="Detalle opcional del enlace"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Agregar enlace</button>
+                </form>
+            </div>
+        {% endif %}
+
+        <div class="card">
+            <h2>Enlaces del curso</h2>
+            <div class="course-links-list">
+                {% if links %}
+                    {% for link in links %}
+                    <div class="link-item">
+                        <div class="link-content">
+                            <h4><a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.name }} 🔗</a></h4>
+                            {% if link.description %}
+                                <p>{{ link.description }}</p>
+                            {% endif %}
+                            <small style="opacity: 0.7;">{{ link.url }}</small>
+                        </div>
+                        {% if is_teacher %}
+                            <div class="link-actions">
+                                <form method="POST" action="{{ url_for('course_link_delete', link_id=link.id) }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar este enlace?')">Eliminar</button>
+                                </form>
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="empty-text">No hay enlaces{% if is_teacher %} agregados{% endif %} en este curso.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
