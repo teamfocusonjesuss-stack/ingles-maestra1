@@ -2033,6 +2033,55 @@ def material_link_delete(link_id):
     flash('Link eliminado correctamente.', 'success')
     return redirect(url_for('courses'))
 
+@app.route('/material-links/<int:link_id>/edit', methods=['POST'])
+@teacher_only
+def material_link_edit(link_id):
+    link = MaterialLink.query.get_or_404(link_id)
+
+    if link.created_by != session['user_id']:
+        flash('No puedes editar este link.', 'danger')
+        return redirect(url_for('courses'))
+
+    link_name = request.form.get('link_name', '').strip()
+    link_url = request.form.get('link_url', '').strip()
+    link_description = request.form.get('link_description', '').strip()
+
+    if not link_name or not link_url:
+        flash('Completa nombre y URL del link.', 'danger')
+        return redirect(url_for('courses'))
+
+    if not (link_url.startswith('http://') or link_url.startswith('https://')):
+        link_url = 'https://' + link_url
+
+    link.name = link_name
+    link.url = link_url
+    link.description = link_description if link_description else None
+    db.session.commit()
+    flash('Link actualizado correctamente.', 'success')
+    return redirect(url_for('courses'))
+
+@app.route('/courses/<int:course_id>/edit', methods=['POST'])
+@teacher_only
+def course_edit(course_id):
+    course = Course.query.get_or_404(course_id)
+
+    if course.teacher_id != session['user_id']:
+        flash('No puedes editar este material.', 'danger')
+        return redirect(url_for('courses'))
+
+    title = request.form.get('title', '').strip()
+    description = request.form.get('description', '').strip()
+
+    if not title:
+        flash('El material debe tener un título.', 'danger')
+        return redirect(url_for('courses'))
+
+    course.title = title
+    course.description = description if description else None
+    db.session.commit()
+    flash('Material actualizado correctamente.', 'success')
+    return redirect(url_for('courses'))
+
 @app.route('/courses/<int:course_id>')
 @login_required
 def course_detail(course_id):

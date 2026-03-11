@@ -54,7 +54,7 @@
                     <label for="link_description">Descripción</label>
                     <textarea id="link_description" name="link_description" rows="2" placeholder="Detalle opcional"></textarea>
                 </div>
-                <button type="submit" class="btn btn-info">Crear link</button>
+                <button type="submit" class="btn btn-success">Crear link</button>
             </form>
         </div>
         {% endif %}
@@ -77,6 +77,20 @@
                                 <a class="btn btn-secondary btn-sm" href="{{ url_for('course_detail', course_id=course.id) }}">Material</a>
                                 <a class="btn btn-info btn-sm" href="{{ url_for('course_links', course_id=course.id) }}">Links del material</a>
                             </div>
+                            <details style="margin-top:10px; width:100%;">
+                                <summary style="cursor:pointer; font-size:0.9rem;">Editar material</summary>
+                                <form method="POST" action="{{ url_for('course_edit', course_id=course.id) }}" class="form" style="margin-top:8px;">
+                                    <div class="form-group">
+                                        <label>Título</label>
+                                        <input type="text" name="title" value="{{ course.title }}" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Descripción</label>
+                                        <textarea name="description" rows="2" placeholder="Sin descripción">{{ course.description or '' }}</textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-success btn-sm">Guardar cambios</button>
+                                </form>
+                            </details>
                         {% else %}
                             <a class="btn btn-secondary btn-sm" href="{{ url_for('course_detail', course_id=course.id) }}">Ver material</a>
                         {% endif %}
@@ -107,6 +121,24 @@
                                 <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar este link?')">Eliminar</button>
                             </form>
                         </div>
+                        <details style="width:100%; margin-top:8px;">
+                            <summary style="cursor:pointer; font-size:0.9rem;">Editar link</summary>
+                            <form method="POST" action="{{ url_for('material_link_edit', link_id=link.id) }}" class="form" style="margin-top:8px;">
+                                <div class="form-group">
+                                    <label>Nombre</label>
+                                    <input type="text" name="link_name" value="{{ link.name }}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>URL</label>
+                                    <input type="text" name="link_url" value="{{ link.url }}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Descripción</label>
+                                    <textarea name="link_description" rows="2" placeholder="Sin descripción">{{ link.description or '' }}</textarea>
+                                </div>
+                                <button type="submit" class="btn btn-success btn-sm">Guardar cambios</button>
+                            </form>
+                        </details>
                         {% endif %}
                     </div>
                     {% endfor %}
