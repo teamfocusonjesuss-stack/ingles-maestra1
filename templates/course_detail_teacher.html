@@ -8,13 +8,13 @@
         <div class="course-header-row">
             <div>
                 <h1>{{ course.title }}</h1>
-                <p>{{ course.description or 'Sin descripción del curso.' }}</p>
+                <p>{{ course.description or 'Sin descripción del material.' }}</p>
             </div>
             <div class="course-header-actions">
                 <a class="btn btn-info" href="{{ url_for('course_links', course_id=course.id) }}">Links</a>
                 <a class="btn btn-secondary" href="{{ url_for('courses') }}">Volver</a>
-                <form method="POST" action="{{ url_for('course_delete', course_id=course.id) }}" onsubmit="return confirm('¿Eliminar este curso completo? Se borrarán todas sus hojas, eventos, preguntas y notas.');">
-                    <button type="submit" class="btn btn-danger">Eliminar curso</button>
+                <form method="POST" action="{{ url_for('course_delete', course_id=course.id) }}" onsubmit="return confirm('¿Eliminar este material completo? Se borrarán todas sus hojas, eventos, preguntas y notas.');">
+                    <button type="submit" class="btn btn-danger">Eliminar material</button>
                 </form>
             </div>
         </div>
@@ -40,7 +40,7 @@
                 <button type="submit" class="btn btn-primary">Publicar clase</button>
             </form>
 
-            <h2 style="margin-top: 24px;">Clases del curso</h2>
+            <h2 style="margin-top: 24px;">Clases del material</h2>
             {% if pages %}
                 <div class="course-filter-bar" id="courseFilterBar">
                     <button type="button" class="btn btn-secondary btn-sm active" data-filter="all" data-label="Todas">Todas</button>

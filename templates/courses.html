@@ -7,17 +7,17 @@
     <div class="course-hero card">
         <h1>{{ t('nav_courses') }}</h1>
         {% if is_teacher %}
-            <p>Administra tus cursos y crea clases en un editor tipo Notion.</p>
+            <p>Administra tus materiales y crea clases o links de forma independiente.</p>
         {% else %}
-            <p>Explora las clases publicadas por tus docentes y participa con notas y preguntas.</p>
+            <p>Explora los materiales y links compartidos por tus docentes.</p>
         {% endif %}
     </div>
 
     <div class="course-grid">
         {% if is_teacher %}
         <div class="card">
-            <h2>Nueva hoja en blanco</h2>
-            <p class="empty-text">Ponle nombre y destinatario. Se crea como borrador para que la completes antes de publicarla.</p>
+            <h2>Nuevo material</h2>
+            <p class="empty-text">Ponle nombre y destinatario. Se crea como borrador para que lo completes antes de publicarlo.</p>
             <form method="POST" class="form">
                 <input type="hidden" name="action" value="create_course">
                 <div class="form-group">
@@ -39,18 +39,9 @@
 
         <div class="card">
             <h2>Crear link</h2>
-            <p class="empty-text">Crea links desde aquí sin entrar al curso.</p>
+            <p class="empty-text">Crea links desde aquí sin depender de un material.</p>
             <form method="POST" class="form">
                 <input type="hidden" name="action" value="create_link">
-                <div class="form-group">
-                    <label for="course_id">Curso</label>
-                    <select id="course_id" name="course_id" required>
-                        <option value="">Seleccionar curso</option>
-                        {% for course in courses %}
-                            <option value="{{ course.id }}">{{ course.title }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
                 <div class="form-group">
                     <label for="link_name">Nombre del link</label>
                     <input id="link_name" name="link_name" type="text" required placeholder="Ej: Video clase 1">
@@ -63,16 +54,13 @@
                     <label for="link_description">Descripción</label>
                     <textarea id="link_description" name="link_description" rows="2" placeholder="Detalle opcional"></textarea>
                 </div>
-                <button type="submit" class="btn btn-info" {% if not courses %}disabled{% endif %}>Crear link</button>
-                {% if not courses %}
-                    <p class="empty-text" style="margin-top:8px;">Primero crea un curso para poder asociar links.</p>
-                {% endif %}
+                <button type="submit" class="btn btn-info">Crear link</button>
             </form>
         </div>
         {% endif %}
 
         <div class="card {% if not is_teacher %}course-list-full{% endif %}">
-            <h2>{% if is_teacher %}Mis cursos{% else %}Cursos disponibles{% endif %}</h2>
+            <h2>{% if is_teacher %}Mis materiales{% else %}Material disponible{% endif %}</h2>
             {% if courses %}
                 <div class="course-list">
                     {% for course in courses %}
@@ -86,20 +74,45 @@
                         </div>
                         {% if is_teacher %}
                             <div style="display:flex; gap:8px; align-items:center;">
-                                <a class="btn btn-secondary btn-sm" href="{{ url_for('course_detail', course_id=course.id) }}">Curso</a>
-                                <a class="btn btn-info btn-sm" href="{{ url_for('course_links', course_id=course.id) }}">Links</a>
+                                <a class="btn btn-secondary btn-sm" href="{{ url_for('course_detail', course_id=course.id) }}">Material</a>
+                                <a class="btn btn-info btn-sm" href="{{ url_for('course_links', course_id=course.id) }}">Links del material</a>
                             </div>
                         {% else %}
-                            <a class="btn btn-secondary btn-sm" href="{{ url_for('course_detail', course_id=course.id) }}">Entrar</a>
+                            <a class="btn btn-secondary btn-sm" href="{{ url_for('course_detail', course_id=course.id) }}">Ver material</a>
                         {% endif %}
                     </div>
                     {% endfor %}
                 </div>
             {% else %}
-                <p class="empty-text">Aún no hay cursos creados.</p>
-                {% if is_teacher %}
-                    <p class="empty-text">Crea primero un borrador y al abrir ese curso verás la opción de <strong>Links</strong>.</p>
-                {% endif %}
+                <p class="empty-text">Aún no hay materiales creados.</p>
+            {% endif %}
+        </div>
+
+        <div class="card {% if not is_teacher %}course-list-full{% endif %}">
+            <h2>Links</h2>
+            {% if material_links %}
+                <div class="course-links-list">
+                    {% for link in material_links %}
+                    <div class="link-item">
+                        <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer" class="link-content" style="text-decoration:none; color:inherit; display:block; flex:1;">
+                            <h4>{{ link.name }} 🔗</h4>
+                            {% if link.description %}
+                                <p>{{ link.description }}</p>
+                            {% endif %}
+                            <small style="opacity: 0.7;">{{ link.url }}</small>
+                        </a>
+                        {% if is_teacher %}
+                        <div class="link-actions">
+                            <form method="POST" action="{{ url_for('material_link_delete', link_id=link.id) }}">
+                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar este link?')">Eliminar</button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="empty-text">Aún no hay links creados.</p>
             {% endif %}
         </div>
     </div>

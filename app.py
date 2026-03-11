@@ -132,7 +132,7 @@ TRANSLATIONS = {
     'dashboard_student': {'en': 'Student dashboard', 'es': 'Dashboard estudiante'},
     'payments_title': {'en': 'Payments', 'es': 'Pagos'},
     'nav_messages': {'en': 'Messages', 'es': 'Mensajes'},
-    'nav_courses': {'en': 'Course', 'es': 'Curso'}
+    'nav_courses': {'en': 'Material', 'es': 'Material'}
 }
 
 def t(key):
@@ -511,6 +511,14 @@ class CourseLink(db.Model):
     name = db.Column(db.String(180), nullable=False)
     url = db.Column(db.String(500), nullable=False)
     description = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class MaterialLink(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(180), nullable=False)
+    url = db.Column(db.String(500), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 # ============== DECORADORES ==============
@@ -1934,19 +1942,9 @@ def courses():
         action = request.form.get('action', 'create_course').strip()
 
         if action == 'create_link':
-            selected_course_raw = request.form.get('course_id', '').strip()
             link_name = request.form.get('link_name', '').strip()
             link_url = request.form.get('link_url', '').strip()
             link_description = request.form.get('link_description', '').strip()
-
-            if not selected_course_raw.isdigit():
-                flash('Selecciona un curso para agregar el link.', 'danger')
-                return redirect(url_for('courses'))
-
-            selected_course = Course.query.get_or_404(int(selected_course_raw))
-            if selected_course.teacher_id != current_user.id:
-                flash('No tienes permiso para agregar links en ese curso.', 'danger')
-                return redirect(url_for('courses'))
 
             if not link_name or not link_url:
                 flash('Completa el nombre y la URL del link.', 'danger')
@@ -1954,11 +1952,11 @@ def courses():
 
             normalized_url = link_url if link_url.lower().startswith(('http://', 'https://')) else f'https://{link_url}'
 
-            new_link = CourseLink(
-                course_id=selected_course.id,
+            new_link = MaterialLink(
                 name=link_name,
                 url=normalized_url,
-                description=link_description or None
+                description=link_description or None,
+                created_by=current_user.id
             )
             db.session.add(new_link)
             db.session.commit()
@@ -2008,16 +2006,32 @@ def courses():
     teacher_ids = {course.teacher_id for course in course_list}
     teachers = User.query.filter(User.id.in_(teacher_ids)).all() if teacher_ids else []
     teacher_map = {teacher.id: teacher for teacher in teachers}
+    material_links = MaterialLink.query.order_by(MaterialLink.created_at.desc()).all()
 
     students = User.query.filter_by(role='student').order_by(User.nombre.asc()).all() if current_user.role == 'teacher' else []
 
     return render_template(
         'courses.html',
         courses=course_list,
+        material_links=material_links,
         is_teacher=current_user.role == 'teacher',
         teacher_map=teacher_map,
         students=students
     )
+
+@app.route('/material-links/<int:link_id>/delete', methods=['POST'])
+@teacher_only
+def material_link_delete(link_id):
+    link = MaterialLink.query.get_or_404(link_id)
+
+    if link.created_by != session['user_id']:
+        flash('No puedes eliminar este link.', 'danger')
+        return redirect(url_for('courses'))
+
+    db.session.delete(link)
+    db.session.commit()
+    flash('Link eliminado correctamente.', 'success')
+    return redirect(url_for('courses'))
 
 @app.route('/courses/<int:course_id>')
 @login_required
@@ -3340,6 +3354,10 @@ with app.app_context():
     course_link_columns = [row[1] for row in db.session.execute(text("PRAGMA table_info(course_link)")).fetchall()]
     if not course_link_columns:
         CourseLink.__table__.create(bind=db.engine, checkfirst=True)
+
+    material_link_columns = [row[1] for row in db.session.execute(text("PRAGMA table_info(material_link)")).fetchall()]
+    if not material_link_columns:
+        MaterialLink.__table__.create(bind=db.engine, checkfirst=True)
 
     db.session.commit()
 

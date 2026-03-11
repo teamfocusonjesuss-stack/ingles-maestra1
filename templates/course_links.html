@@ -8,9 +8,9 @@
         <div class="course-header-row">
             <div>
                 <h1>Enlaces - {{ course.title }}</h1>
-                <p>{{ course.description or 'Sin descripción del curso.' }}</p>
+                <p>{{ course.description or 'Sin descripción del material.' }}</p>
             </div>
-            <a class="btn btn-secondary" href="{{ url_for('course_detail', course_id=course.id) }}">Volver al curso</a>
+            <a class="btn btn-secondary" href="{{ url_for('course_detail', course_id=course.id) }}">Volver al material</a>
         </div>
     </div>
 
@@ -37,7 +37,7 @@
         {% endif %}
 
         <div class="card">
-            <h2>Enlaces del curso</h2>
+            <h2>Enlaces del material</h2>
             <div class="course-links-list">
                 {% if links %}
                     {% for link in links %}

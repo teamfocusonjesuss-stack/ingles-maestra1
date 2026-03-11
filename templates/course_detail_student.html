@@ -8,7 +8,7 @@
         <div class="course-header-row">
             <div>
                 <h1>{{ course.title }}</h1>
-                <p>{{ course.description or 'Sin descripción del curso.' }}</p>
+                <p>{{ course.description or 'Sin descripción del material.' }}</p>
                 <small>Docente: {{ teacher.nombre or teacher.username }}</small>
             </div>
             <div>
@@ -39,7 +39,7 @@
         </div>
 
         <div class="card">
-            <h2>Calendario del curso</h2>
+            <h2>Calendario del material</h2>
             <div class="course-calendar-list">
                 {% if events %}
                     {% for event in events %}
@@ -50,7 +50,7 @@
                     </div>
                     {% endfor %}
                 {% else %}
-                    <p class="empty-text">No hay eventos programados en este curso.</p>
+                    <p class="empty-text">No hay eventos programados en este material.</p>
                 {% endif %}
             </div>
         </div>
