@@ -1638,6 +1638,8 @@ def login():
             return redirect(url_for('login'))
         
         user = User.query.filter_by(username=username).first()
+        if not user:
+            user = User.query.filter(User.email.ilike(username)).first()
 
         if user and not is_authorized_access_user(user):
             login_event = LoginEvent(
