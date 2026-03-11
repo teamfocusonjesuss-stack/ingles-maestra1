@@ -86,9 +86,26 @@
             <div class="form-group">
                 <label for="currency">{{ 'Currency' if current_lang == 'en' else 'Moneda' }}</label>
                 <select id="currency" name="currency" required>
-                    <option value="USD">USD</option>
-                    <option value="COP">COP</option>
-                    <option value="EUR">EUR</option>
+                    <option value="USD">🇺🇸 USD – Dólar estadounidense</option>
+                    <option value="EUR">🇪🇺 EUR – Euro</option>
+                    <option value="MXN">🇲🇽 MXN – Peso mexicano</option>
+                    <option value="COP">🇨🇴 COP – Peso colombiano</option>
+                    <option value="ARS">🇦🇷 ARS – Peso argentino</option>
+                    <option value="CLP">🇨🇱 CLP – Peso chileno</option>
+                    <option value="PEN">🇵🇪 PEN – Sol peruano</option>
+                    <option value="BRL">🇧🇷 BRL – Real brasileño</option>
+                    <option value="UYU">🇺🇾 UYU – Peso uruguayo</option>
+                    <option value="PYG">🇵🇾 PYG – Guaraní paraguayo</option>
+                    <option value="BOB">🇧🇴 BOB – Boliviano</option>
+                    <option value="CRC">🇨🇷 CRC – Colón costarricense</option>
+                    <option value="DOP">🇩🇴 DOP – Peso dominicano</option>
+                    <option value="GTQ">🇬🇹 GTQ – Quetzal guatemalteco</option>
+                    <option value="HNL">🇭🇳 HNL – Lempira hondureño</option>
+                    <option value="NIO">🇳🇮 NIO – Córdoba nicaragüense</option>
+                    <option value="PAB">🇵🇦 PAB – Balboa panameño</option>
+                    <option value="GBP">🇬🇧 GBP – Libra esterlina</option>
+                    <option value="CAD">🇨🇦 CAD – Dólar canadiense</option>
+                    <option value="AUD">🇦🇺 AUD – Dólar australiano</option>
                 </select>
             </div>
 
@@ -236,9 +253,11 @@
                     </form>
                     {% endif %}
                     {% if paypal_enabled %}
-                    <div style="margin-top: 10px;">
-                        <p style="margin:0 0 8px 0; font-size:13px; opacity:0.85;">{{ 'PayPal will show available options in your country (balance, card or bank).' if current_lang == 'en' else 'PayPal mostrará las opciones disponibles en tu país (saldo, tarjeta o banco).' }}</p>
+                    <div style="margin-top: 12px; padding:12px; border:1px solid rgba(0,112,240,0.3); border-radius:10px; background:rgba(0,112,240,0.04);">
+                        <p style="margin:0 0 4px 0; font-weight:600; font-size:14px;">{{ 'Pay now with PayPal' if current_lang == 'en' else 'Pagar ahora con PayPal' }}</p>
+                        <p style="margin:0 0 10px 0; font-size:12px; opacity:0.8;">{{ 'PayPal will show payment options available in your country: balance, credit/debit card, bank transfer or local methods.' if current_lang == 'en' else 'PayPal mostrará las opciones de pago disponibles en tu país: saldo, tarjeta crédito/débito, transferencia bancaria o métodos locales.' }}</p>
                         <div id="paypal-button-container-{{ payment.id }}" class="paypal-button-container" data-schedule-id="{{ payment.id }}"></div>
+                        <p style="margin:8px 0 0 0; font-size:11px; opacity:0.65; text-align:center;">🔒 {{ 'Secured by PayPal · Your card/bank data is never stored here.' if current_lang == 'en' else 'Protegido por PayPal · Tus datos de tarjeta/banco nunca se guardan aquí.' }}</p>
                     </div>
                     {% endif %}
                 </div>
@@ -488,7 +507,7 @@
 
 {% if not is_teacher %}
 {% if paypal_enabled and paypal_client_id %}
-<script src="https://www.paypal.com/sdk/js?client-id={{ paypal_client_id }}&currency=USD&intent=capture"></script>
+<script src="https://www.paypal.com/sdk/js?client-id={{ paypal_client_id }}&currency=USD&intent=capture&enable-funding=card,venmo,paylater,mercadopago&disable-funding=credit&components=buttons"></script>
 <script>
 function initPaypalButtons() {
     if (!window.paypal) {
@@ -503,6 +522,12 @@ function initPaypalButtons() {
         }
 
         paypal.Buttons({
+            style: {
+                layout: 'vertical',
+                color:  'blue',
+                shape:  'rect',
+                label:  'pay'
+            },
             createOrder: async function() {
                 const response = await fetch(`/pagos/paypal/order/${scheduleId}`, {
                     method: 'POST',
@@ -527,8 +552,12 @@ function initPaypalButtons() {
                 }
                 window.location.reload();
             },
-            onError: function() {
-                alert('Hubo un error al procesar PayPal. Intenta nuevamente.');
+            onCancel: function() {
+                // user closed PayPal popup, no action needed
+            },
+            onError: function(err) {
+                console.error('PayPal error:', err);
+                alert('Hubo un error al procesar el pago. Intenta nuevamente.');
             }
         }).render(container);
     });

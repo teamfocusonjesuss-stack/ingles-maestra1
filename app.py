@@ -1489,10 +1489,17 @@ def paypal_create_order(schedule_id):
                 'value': f"{scheduled_payment.amount:.2f}"
             }
         }],
-        'application_context': {
-            'user_action': 'PAY_NOW',
-            'return_url': url_for('pagos', _external=True),
-            'cancel_url': url_for('pagos', _external=True)
+        'payment_source': {
+            'paypal': {
+                'experience_context': {
+                    'payment_method_preference': 'IMMEDIATE_PAYMENT_REQUIRED',
+                    'user_action': 'PAY_NOW',
+                    'landing_page': 'LOGIN',
+                    'shipping_preference': 'NO_SHIPPING',
+                    'return_url': url_for('pagos', _external=True),
+                    'cancel_url': url_for('pagos', _external=True)
+                }
+            }
         }
     }
 
