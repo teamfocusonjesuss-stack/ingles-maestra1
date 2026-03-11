@@ -15,6 +15,9 @@
                                 <th>Nombre</th>
                                 <th>Usuario</th>
                                 <th>Email</th>
+                                <th>Nacionalidad</th>
+                                <th>País (Banco)</th>
+                                <th>Método Pago</th>
                                 <th>Fecha de registro</th>
                             </tr>
                         </thead>
@@ -24,6 +27,9 @@
                                 <td>{{ student.nombre }}</td>
                                 <td>@{{ student.username }}</td>
                                 <td>{{ student.email }}</td>
+                                <td>{{ student.nationality or '-' }}</td>
+                                <td>{{ student.preferred_bank_country or '-' }}</td>
+                                <td>{{ student.preferred_payment_method or '-' }}</td>
                                 <td>{{ student.fecha_creacion.strftime('%d/%m/%Y') if student.fecha_creacion else '-' }}</td>
                             </tr>
                             {% endfor %}
