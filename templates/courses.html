@@ -42,7 +42,7 @@
             {% if courses %}
                 <div class="course-list">
                     {% for course in courses %}
-                    <a class="course-item" href="{{ url_for('course_detail', course_id=course.id) }}">
+                    <div class="course-item">
                         <div>
                             <h3>{{ course.title }}</h3>
                             <p>{{ course.description or 'Sin descripción' }}</p>
@@ -50,12 +50,22 @@
                                 <small>Docente: {{ teacher_map[course.teacher_id].nombre or teacher_map[course.teacher_id].username }}</small>
                             {% endif %}
                         </div>
-                        <span>→</span>
-                    </a>
+                        {% if is_teacher %}
+                            <div style="display:flex; gap:8px; align-items:center;">
+                                <a class="btn btn-secondary btn-sm" href="{{ url_for('course_detail', course_id=course.id) }}">Curso</a>
+                                <a class="btn btn-info btn-sm" href="{{ url_for('course_links', course_id=course.id) }}">Links</a>
+                            </div>
+                        {% else %}
+                            <a class="btn btn-secondary btn-sm" href="{{ url_for('course_detail', course_id=course.id) }}">Entrar</a>
+                        {% endif %}
+                    </div>
                     {% endfor %}
                 </div>
             {% else %}
                 <p class="empty-text">Aún no hay cursos creados.</p>
+                {% if is_teacher %}
+                    <p class="empty-text">Crea primero un borrador y al abrir ese curso verás la opción de <strong>Links</strong>.</p>
+                {% endif %}
             {% endif %}
         </div>
     </div>
