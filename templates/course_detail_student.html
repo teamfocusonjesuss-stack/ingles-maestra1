@@ -51,6 +51,27 @@
                 {% endif %}
             </div>
         </div>
+
+        <div class="card">
+            <h2>Enlaces útiles</h2>
+            <div class="course-links-list">
+                {% if links %}
+                    {% for link in links %}
+                    <div class="link-item">
+                        <div class="link-content">
+                            <h4><a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.name }} 🔗</a></h4>
+                            {% if link.description %}
+                                <p>{{ link.description }}</p>
+                            {% endif %}
+                            <small style="opacity: 0.7;">{{ link.url }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="empty-text">El docente no ha agregado enlaces útiles a este curso.</p>
+                {% endif %}
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

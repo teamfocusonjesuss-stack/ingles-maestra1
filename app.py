@@ -500,6 +500,14 @@ class CourseAnswer(db.Model):
     text = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class CourseLink(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
+    name = db.Column(db.String(180), nullable=False)
+    url = db.Column(db.String(500), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 # ============== DECORADORES ==============
 
 def login_required(f):
@@ -1995,14 +2003,15 @@ def course_detail(course_id):
         ).filter(CoursePage.is_published.is_(True))
     pages = pages_query.order_by(CoursePage.created_at.desc()).all()
     events = CourseCalendarEvent.query.filter_by(course_id=course.id).order_by(CourseCalendarEvent.event_date.asc()).all()
+    links = CourseLink.query.filter_by(course_id=course.id).order_by(CourseLink.created_at.desc()).all()
     teacher = User.query.get(course.teacher_id)
     students = User.query.filter_by(role='student').order_by(User.nombre.asc()).all() if current_user.role == 'teacher' else []
     students_map = {student.id: student for student in students}
 
     if current_user.role == 'teacher':
-        return render_template('course_detail_teacher.html', course=course, pages=pages, events=events, teacher=teacher, students=students, students_map=students_map)
+        return render_template('course_detail_teacher.html', course=course, pages=pages, events=events, links=links, teacher=teacher, students=students, students_map=students_map)
 
-    return render_template('course_detail_student.html', course=course, pages=pages, events=events, teacher=teacher)
+    return render_template('course_detail_student.html', course=course, pages=pages, events=events, links=links, teacher=teacher)
 
 @app.route('/courses/<int:course_id>/pages/new', methods=['POST'])
 @teacher_only
@@ -2065,6 +2074,82 @@ def course_event_new(course_id):
     db.session.commit()
     flash('Evento agregado al curso.', 'success')
     return redirect(url_for('course_detail', course_id=course.id))
+
+@app.route('/courses/<int:course_id>/links/new', methods=['POST'])
+@teacher_only
+def course_link_new(course_id):
+    course = Course.query.get_or_404(course_id)
+    if course.teacher_id != session['user_id']:
+        flash('No puedes editar este curso.', 'danger')
+        return redirect(url_for('courses'))
+
+    link_name = request.form.get('link_name', '').strip()
+    link_url = request.form.get('link_url', '').strip()
+    link_description = request.form.get('link_description', '').strip()
+
+    if not link_name or not link_url:
+        flash('Completa nombre y URL del enlace.', 'danger')
+        return redirect(url_for('course_detail', course_id=course.id))
+
+    # Basic URL validation
+    if not (link_url.startswith('http://') or link_url.startswith('https://')):
+        link_url = 'https://' + link_url
+
+    link = CourseLink(
+        course_id=course.id,
+        name=link_name,
+        url=link_url,
+        description=link_description if link_description else None
+    )
+    db.session.add(link)
+    db.session.commit()
+    flash('Enlace agregado al curso.', 'success')
+    return redirect(url_for('course_detail', course_id=course.id))
+
+@app.route('/course-links/<int:link_id>/delete', methods=['POST'])
+@teacher_only
+def course_link_delete(link_id):
+    link = CourseLink.query.get_or_404(link_id)
+    course = Course.query.get_or_404(link.course_id)
+    
+    if course.teacher_id != session['user_id']:
+        flash('No puedes editar este curso.', 'danger')
+        return redirect(url_for('courses'))
+    
+    db.session.delete(link)
+    db.session.commit()
+    flash('Enlace eliminado del curso.', 'success')
+    return redirect(url_for('course_detail', course_id=course.id))
+
+@app.route('/course-links/<int:link_id>/edit', methods=['POST'])
+@teacher_only
+def course_link_edit(link_id):
+    link = CourseLink.query.get_or_404(link_id)
+    course = Course.query.get_or_404(link.course_id)
+    
+    if course.teacher_id != session['user_id']:
+        flash('No puedes editar este curso.', 'danger')
+        return redirect(url_for('courses'))
+
+    link_name = request.form.get('link_name', '').strip()
+    link_url = request.form.get('link_url', '').strip()
+    link_description = request.form.get('link_description', '').strip()
+
+    if not link_name or not link_url:
+        flash('Completa nombre y URL del enlace.', 'danger')
+        return redirect(url_for('course_detail', course_id=course.id))
+
+    # Basic URL validation
+    if not (link_url.startswith('http://') or link_url.startswith('https://')):
+        link_url = 'https://' + link_url
+
+    link.name = link_name
+    link.url = link_url
+    link.description = link_description if link_description else None
+    db.session.commit()
+    flash('Enlace actualizado.', 'success')
+    return redirect(url_for('course_detail', course_id=course.id))
+
 
 @app.route('/course-pages/<int:page_id>')
 @login_required
@@ -3204,6 +3289,10 @@ with app.app_context():
     login_event_columns = [row[1] for row in db.session.execute(text("PRAGMA table_info(login_event)")).fetchall()]
     if not login_event_columns:
         LoginEvent.__table__.create(bind=db.engine, checkfirst=True)
+
+    course_link_columns = [row[1] for row in db.session.execute(text("PRAGMA table_info(course_link)")).fetchall()]
+    if not course_link_columns:
+        CourseLink.__table__.create(bind=db.engine, checkfirst=True)
 
     db.session.commit()
 

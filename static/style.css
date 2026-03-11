@@ -197,3 +197,73 @@ textarea{ resize: vertical; }
 }
 .qa-text{ margin-top: 8px; color: var(--text); line-height: 1.55; }
 .qa-a{ margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,.14); }
+.course-calendar-list, .course-links-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.calendar-item, .link-item {
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  background: rgba(255,255,255,.04);
+  padding: 14px;
+  transition: all 0.2s ease;
+}
+
+.calendar-item:hover, .link-item:hover {
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.15);
+}
+
+.link-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.link-content {
+  flex: 1;
+}
+
+.link-content h4 {
+  margin: 0 0 6px 0;
+  font-size: 16px;
+}
+
+.link-content h4 a {
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.link-content h4 a:hover {
+  color: var(--accent2);
+  text-decoration: underline;
+}
+
+.link-content p {
+  margin: 8px 0;
+  line-height: 1.5;
+}
+
+.link-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.calendar-item small {
+  display: block;
+  margin-top: 6px;
+}
+
+.calendar-item p {
+  margin: 8px 0 0 0;
+  line-height: 1.5;
+}
+
+.empty-text {
+  opacity: 0.6;
+  font-style: italic;
+}
