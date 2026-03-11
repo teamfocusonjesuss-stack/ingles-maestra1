@@ -19,6 +19,7 @@
             <h2>Nueva hoja en blanco</h2>
             <p class="empty-text">Ponle nombre y destinatario. Se crea como borrador para que la completes antes de publicarla.</p>
             <form method="POST" class="form">
+                <input type="hidden" name="action" value="create_course">
                 <div class="form-group">
                     <label for="page_title">Nombre de la hoja</label>
                     <input id="page_title" name="page_title" type="text" required placeholder="Ej: Clase 1 - Introducción">
@@ -33,6 +34,39 @@
                     </select>
                 </div>
                 <button type="submit" class="btn btn-primary">Crear borrador</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>Crear link</h2>
+            <p class="empty-text">Crea links desde aquí sin entrar al curso.</p>
+            <form method="POST" class="form">
+                <input type="hidden" name="action" value="create_link">
+                <div class="form-group">
+                    <label for="course_id">Curso</label>
+                    <select id="course_id" name="course_id" required>
+                        <option value="">Seleccionar curso</option>
+                        {% for course in courses %}
+                            <option value="{{ course.id }}">{{ course.title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="link_name">Nombre del link</label>
+                    <input id="link_name" name="link_name" type="text" required placeholder="Ej: Video clase 1">
+                </div>
+                <div class="form-group">
+                    <label for="link_url">URL</label>
+                    <input id="link_url" name="link_url" type="text" required placeholder="https://ejemplo.com">
+                </div>
+                <div class="form-group">
+                    <label for="link_description">Descripción</label>
+                    <textarea id="link_description" name="link_description" rows="2" placeholder="Detalle opcional"></textarea>
+                </div>
+                <button type="submit" class="btn btn-info" {% if not courses %}disabled{% endif %}>Crear link</button>
+                {% if not courses %}
+                    <p class="empty-text" style="margin-top:8px;">Primero crea un curso para poder asociar links.</p>
+                {% endif %}
             </form>
         </div>
         {% endif %}

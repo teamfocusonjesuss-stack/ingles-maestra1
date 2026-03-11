@@ -37,6 +37,9 @@ app.config['PAYPAL_CLIENT_ID'] = os.getenv('PAYPAL_CLIENT_ID', '').strip()
 app.config['PAYPAL_CLIENT_SECRET'] = os.getenv('PAYPAL_CLIENT_SECRET', '').strip()
 app.config['PAYPAL_MODE'] = os.getenv('PAYPAL_MODE', 'sandbox').strip().lower()
 app.config['ALLOW_PUBLIC_REGISTRATION'] = os.getenv('ALLOW_PUBLIC_REGISTRATION', '1').strip() == '1'
+app.config['SESSION_PERMANENT'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 
 if app.config['STRIPE_SECRET_KEY']:
     stripe.api_key = app.config['STRIPE_SECRET_KEY']
@@ -138,6 +141,8 @@ def t(key):
 
 @app.before_request
 def ensure_language_in_session():
+    if session.get('user_id'):
+        session.permanent = True
     if session.get('lang') not in SUPPORTED_LANGUAGES:
         session['lang'] = DEFAULT_LANGUAGE
 
@@ -531,11 +536,6 @@ def login_required(f):
         if session.get('access_lock_version') != ACCESS_LOCK_VERSION:
             session.clear()
             flash('Por seguridad se cerró tu sesión. Inicia sesión de nuevo.', 'danger')
-            return redirect(url_for('login'))
-
-        if int(session.get('session_nonce', -1)) != int(user.session_nonce or 0):
-            session.clear()
-            flash('Tu sesión fue cerrada por seguridad.', 'danger')
             return redirect(url_for('login'))
 
         return f(*args, **kwargs)
@@ -1670,7 +1670,6 @@ def login():
             return redirect(url_for('login'))
         
         if user and check_password_hash(user.password, password):
-            user.session_nonce = int(user.session_nonce or 0) + 1
             login_event = LoginEvent(
                 user_id=user.id,
                 username_attempt=username,
@@ -1685,7 +1684,7 @@ def login():
             session['username'] = user.username
             session['role'] = user.role
             session['access_lock_version'] = ACCESS_LOCK_VERSION
-            session['session_nonce'] = int(user.session_nonce or 0)
+            session.permanent = True
             flash(f'¡Bienvenido {user.nombre}!', 'success')
 
             return redirect(url_for('index'))
@@ -1930,6 +1929,40 @@ def courses():
     if request.method == 'POST':
         if current_user.role != 'teacher':
             flash('Solo los docentes pueden crear cursos.', 'danger')
+            return redirect(url_for('courses'))
+
+        action = request.form.get('action', 'create_course').strip()
+
+        if action == 'create_link':
+            selected_course_raw = request.form.get('course_id', '').strip()
+            link_name = request.form.get('link_name', '').strip()
+            link_url = request.form.get('link_url', '').strip()
+            link_description = request.form.get('link_description', '').strip()
+
+            if not selected_course_raw.isdigit():
+                flash('Selecciona un curso para agregar el link.', 'danger')
+                return redirect(url_for('courses'))
+
+            selected_course = Course.query.get_or_404(int(selected_course_raw))
+            if selected_course.teacher_id != current_user.id:
+                flash('No tienes permiso para agregar links en ese curso.', 'danger')
+                return redirect(url_for('courses'))
+
+            if not link_name or not link_url:
+                flash('Completa el nombre y la URL del link.', 'danger')
+                return redirect(url_for('courses'))
+
+            normalized_url = link_url if link_url.lower().startswith(('http://', 'https://')) else f'https://{link_url}'
+
+            new_link = CourseLink(
+                course_id=selected_course.id,
+                name=link_name,
+                url=normalized_url,
+                description=link_description or None
+            )
+            db.session.add(new_link)
+            db.session.commit()
+            flash('Link creado correctamente.', 'success')
             return redirect(url_for('courses'))
 
         title = request.form.get('title', '').strip()
