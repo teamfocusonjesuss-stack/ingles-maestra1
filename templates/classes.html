@@ -237,15 +237,15 @@
                 <details style="margin-bottom:18px;">
                     <summary style="cursor:pointer;font-weight:600;font-size:1rem;padding:8px 0;">📋 Hábitos sugeridos por tu maestra</summary>
                     <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
-                        {% for t in habit_templates %}
-                        {% if t.id not in adopted_template_ids %}
+                        {% for tpl in habit_templates %}
+                        {% if tpl.id not in adopted_template_ids %}
                         <div style="display:flex;align-items:center;justify-content:space-between;background:#1e293b;border-radius:8px;padding:10px 14px;">
                             <div>
-                                <strong>{{ t.emoji or '📌' }} {{ t.name }}</strong>
-                                {% if t.description %}<p style="margin:2px 0 0;font-size:0.82rem;opacity:0.7;">{{ t.description }}</p>{% endif %}
+                                <strong>{{ tpl.emoji or '📌' }} {{ tpl.name }}</strong>
+                                {% if tpl.description %}<p style="margin:2px 0 0;font-size:0.82rem;opacity:0.7;">{{ tpl.description }}</p>{% endif %}
                             </div>
                             <form method="POST" action="{{ url_for('adopt_habit') }}" style="margin:0;">
-                                <input type="hidden" name="template_id" value="{{ t.id }}">
+                                <input type="hidden" name="template_id" value="{{ tpl.id }}">
                                 <button type="submit" class="btn btn-small btn-primary">+ Agregar</button>
                             </form>
                         </div>
