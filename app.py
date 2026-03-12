@@ -18,6 +18,7 @@ import stripe
 from authlib.integrations.requests_client import OAuth2Session
 import uuid
 from werkzeug.middleware.proxy_fix import ProxyFix
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 FIXED_ADMIN_EMAIL = 'team.focusonjesuss@gmail.com'
 FIXED_ADMIN_USERNAME = 'Allison'
@@ -49,8 +50,7 @@ app.config['SESSION_COOKIE_SECURE'] = is_production
 app.config['SESSION_COOKIE_SAMESITE'] = 'None' if is_production else 'Lax'
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
-
-oauth_login_tickets = {}
+oauth_ticket_serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
 # OAuth Config
 app.config['GOOGLE_CLIENT_ID'] = os.getenv('GOOGLE_CLIENT_ID', '').strip()
@@ -215,21 +215,16 @@ def get_daily_verse(language=None):
 
 
 def create_oauth_login_ticket(user_id):
-    ticket = secrets.token_urlsafe(32)
-    oauth_login_tickets[ticket] = {
-        'user_id': user_id,
-        'expires_at': datetime.utcnow() + timedelta(minutes=5)
-    }
-    return ticket
+    return oauth_ticket_serializer.dumps({'user_id': user_id}, salt='oauth-login')
 
 
 def consume_oauth_login_ticket(ticket):
-    ticket_data = oauth_login_tickets.pop(ticket, None)
-    if not ticket_data:
+    try:
+        payload = oauth_ticket_serializer.loads(ticket, salt='oauth-login', max_age=300)
+    except (BadSignature, SignatureExpired):
         return None
-    if ticket_data['expires_at'] < datetime.utcnow():
-        return None
-    return ticket_data['user_id']
+    user_id = payload.get('user_id')
+    return user_id if isinstance(user_id, int) else None
 
 
 def stripe_is_enabled():
