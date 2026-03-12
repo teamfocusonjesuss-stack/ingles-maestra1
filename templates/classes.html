@@ -233,12 +233,18 @@
                 {% endif %}
 
                 <!-- Hábitos sugeridos por el admin -->
-                {% set available_templates = habit_templates | selectattr('id', 'not in', adopted_template_ids) | list %}
-                {% if available_templates %}
+                {% set available_count = 0 %}
+                {% for t in habit_templates %}
+                    {% if t.id not in adopted_template_ids %}
+                        {% set available_count = available_count + 1 %}
+                    {% endif %}
+                {% endfor %}
+                {% if available_count > 0 %}
                 <details style="margin-bottom:18px;">
-                    <summary style="cursor:pointer;font-weight:600;font-size:1rem;padding:8px 0;">📋 Hábitos sugeridos por tu maestra ({{ available_templates|length }})</summary>
+                    <summary style="cursor:pointer;font-weight:600;font-size:1rem;padding:8px 0;">📋 Hábitos sugeridos por tu maestra ({{ available_count }})</summary>
                     <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
-                        {% for t in available_templates %}
+                        {% for t in habit_templates %}
+                        {% if t.id not in adopted_template_ids %}
                         <div style="display:flex;align-items:center;justify-content:space-between;background:#1e293b;border-radius:8px;padding:10px 14px;">
                             <div>
                                 <strong>{{ t.emoji or '📌' }} {{ t.name }}</strong>
@@ -249,6 +255,7 @@
                                 <button type="submit" class="btn btn-small btn-primary">+ Agregar</button>
                             </form>
                         </div>
+                        {% endif %}
                         {% endfor %}
                     </div>
                 </details>
