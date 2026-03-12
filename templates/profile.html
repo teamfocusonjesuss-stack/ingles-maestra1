@@ -38,13 +38,38 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="nationality">Nacionalidad</label>
-                    <input type="text" id="nationality" name="nationality" value="{{ user.nationality or '' }}" placeholder="Ej: Colombiana, Mexicana, Española">
+                    <label for="nationality">País</label>
+                    <select id="nationality" name="nationality" onchange="updateBanks()">
+                        <option value="">-- Selecciona tu país --</option>
+                        <option value="Argentina" {% if user.nationality == 'Argentina' %}selected{% endif %}>🇦🇷 Argentina</option>
+                        <option value="Bolivia" {% if user.nationality == 'Bolivia' %}selected{% endif %}>🇧🇴 Bolivia</option>
+                        <option value="Chile" {% if user.nationality == 'Chile' %}selected{% endif %}>🇨🇱 Chile</option>
+                        <option value="Colombia" {% if user.nationality == 'Colombia' %}selected{% endif %}>🇨🇴 Colombia</option>
+                        <option value="Costa Rica" {% if user.nationality == 'Costa Rica' %}selected{% endif %}>🇨🇷 Costa Rica</option>
+                        <option value="Cuba" {% if user.nationality == 'Cuba' %}selected{% endif %}>🇨🇺 Cuba</option>
+                        <option value="Ecuador" {% if user.nationality == 'Ecuador' %}selected{% endif %}>🇪🇨 Ecuador</option>
+                        <option value="El Salvador" {% if user.nationality == 'El Salvador' %}selected{% endif %}>🇸🇻 El Salvador</option>
+                        <option value="España" {% if user.nationality == 'España' %}selected{% endif %}>🇪🇸 España</option>
+                        <option value="Estados Unidos" {% if user.nationality == 'Estados Unidos' %}selected{% endif %}>🇺🇸 Estados Unidos</option>
+                        <option value="Guatemala" {% if user.nationality == 'Guatemala' %}selected{% endif %}>🇬🇹 Guatemala</option>
+                        <option value="Honduras" {% if user.nationality == 'Honduras' %}selected{% endif %}>🇭🇳 Honduras</option>
+                        <option value="México" {% if user.nationality == 'México' %}selected{% endif %}>🇲🇽 México</option>
+                        <option value="Nicaragua" {% if user.nationality == 'Nicaragua' %}selected{% endif %}>🇳🇮 Nicaragua</option>
+                        <option value="Panamá" {% if user.nationality == 'Panamá' %}selected{% endif %}>🇵🇦 Panamá</option>
+                        <option value="Paraguay" {% if user.nationality == 'Paraguay' %}selected{% endif %}>🇵🇾 Paraguay</option>
+                        <option value="Perú" {% if user.nationality == 'Perú' %}selected{% endif %}>🇵🇪 Perú</option>
+                        <option value="Puerto Rico" {% if user.nationality == 'Puerto Rico' %}selected{% endif %}>🇵🇷 Puerto Rico</option>
+                        <option value="República Dominicana" {% if user.nationality == 'República Dominicana' %}selected{% endif %}>🇩🇴 República Dominicana</option>
+                        <option value="Uruguay" {% if user.nationality == 'Uruguay' %}selected{% endif %}>🇺🇾 Uruguay</option>
+                        <option value="Venezuela" {% if user.nationality == 'Venezuela' %}selected{% endif %}>🇻🇪 Venezuela</option>
+                    </select>
                 </div>
 
                 <div class="form-group">
-                    <label for="preferred_bank_country">País donde usarás banco</label>
-                    <input type="text" id="preferred_bank_country" name="preferred_bank_country" value="{{ user.preferred_bank_country or '' }}" placeholder="Ej: Colombia, México, Estados Unidos">
+                    <label for="preferred_bank_country">Banco que usarás</label>
+                    <select id="preferred_bank_country" name="preferred_bank_country">
+                        <option value="">-- Primero selecciona tu país --</option>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -75,4 +100,55 @@
         </div>
     </div>
 </div>
+
+<script>
+const banksByCountry = {
+    "Argentina":             ["Banco Nación", "Santander", "BBVA", "Galicia", "Macro", "HSBC", "Brubank", "Mercado Pago"],
+    "Bolivia":               ["Banco BNB", "Banco Mercantil Santa Cruz", "Banco Nacional Bolivia", "Banco BISA", "BancoSol", "Banco FIE"],
+    "Chile":                 ["BancoEstado", "Santander", "BCI", "Itaú", "Banco de Chile", "Scotiabank", "Falabella", "Mercado Pago"],
+    "Colombia":              ["Bancolombia", "Davivienda", "Banco de Bogotá", "BBVA", "Nequi", "Daviplata", "Scotiabank Colpatria", "Banco Popular"],
+    "Costa Rica":            ["BCR", "Banco Nacional", "BAC", "Davivienda", "Scotiabank", "Promerica"],
+    "Cuba":                  ["Banco de Cuba", "BPA", "Bandec", "Cadeca"],
+    "Ecuador":               ["Banco Pichincha", "Banco Guayaquil", "Produbanco", "Banco Pacífico", "Banco del Austro", "Banco Internacional"],
+    "El Salvador":           ["Banco Agrícola", "BAC El Salvador", "Davivienda", "Banco Cuscatlán", "Promerica"],
+    "España":                ["BBVA", "Santander", "CaixaBank", "ING", "Sabadell", "Bankinter", "Bizum"],
+    "Estados Unidos":        ["Bank of America", "Chase", "Wells Fargo", "Citibank", "Zelle", "PayPal", "Cash App", "Venmo"],
+    "Guatemala":             ["Banrural", "Banco Industrial", "G&T Continental", "BAC Guatemala", "Bantrab"],
+    "Honduras":              ["Banco Atlántida", "BAC Honduras", "Ficohsa", "Banco de Occidente", "Bancaffé"],
+    "México":                ["BBVA", "Santander", "Citibanamex", "HSBC", "Banco Azteca", "Banorte", "CoDi / SPEI", "Mercado Pago"],
+    "Nicaragua":             ["BAC Nicaragua", "Banpro", "Lafise", "Avanz", "Finca Nicaragua"],
+    "Panamá":                ["Banistmo", "BAC Panamá", "Banco General", "Global Bank", "Caja de Ahorros"],
+    "Paraguay":              ["Itaú", "Continental", "Sudameris", "GNB Paraguay", "Banco Nacional de Fomento"],
+    "Perú":                  ["BCP", "Interbank", "BBVA", "Scotiabank", "BanBif", "Yape", "Plin"],
+    "Puerto Rico":           ["FirstBank", "Banco Popular", "Oriental Bank", "Eurobank"],
+    "República Dominicana":  ["Banco Popular", "BHD León", "Banreservas", "Scotiabank", "Banco Santa Cruz"],
+    "Uruguay":               ["BROU", "Itaú", "Santander", "BBVA", "Scotiabank", "Banco Nación (uy)"],
+    "Venezuela":             ["Banco de Venezuela", "Banesco", "Mercantil", "Provincial", "BOD", "Banplus", "Bicentenario"]
+};
+
+const savedBank = "{{ user.preferred_bank_country or '' }}";
+
+function updateBanks() {
+    const country = document.getElementById('nationality').value;
+    const bankSelect = document.getElementById('preferred_bank_country');
+    bankSelect.innerHTML = '';
+
+    if (!country || !banksByCountry[country]) {
+        bankSelect.innerHTML = '<option value="">-- Primero selecciona tu país --</option>';
+        return;
+    }
+
+    bankSelect.innerHTML = '<option value="">-- Selecciona tu banco --</option>';
+    banksByCountry[country].forEach(bank => {
+        const opt = document.createElement('option');
+        opt.value = bank;
+        opt.textContent = bank;
+        if (bank === savedBank) opt.selected = true;
+        bankSelect.appendChild(opt);
+    });
+}
+
+// Ejecutar al cargar para preseleccionar si ya hay valores guardados
+document.addEventListener('DOMContentLoaded', updateBanks);
+</script>
 {% endblock %}
