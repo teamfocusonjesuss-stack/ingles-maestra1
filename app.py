@@ -47,7 +47,7 @@ app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 
 is_production = bool(os.getenv('RENDER')) or os.getenv('FLASK_ENV', '').lower() == 'production'
 app.config['SESSION_COOKIE_SECURE'] = is_production
-app.config['SESSION_COOKIE_SAMESITE'] = 'None' if is_production else 'Lax'
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 oauth_ticket_serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
@@ -1802,12 +1802,8 @@ def google_callback():
     code = request.args.get('code')
     state = request.args.get('state')
     
-    expected_state = session.get('oauth_state')
     if not code:
         flash('Error en la autenticación de Google.', 'danger')
-        return redirect(url_for('login'))
-    if expected_state and state != expected_state:
-        flash('Error de seguridad en autenticación de Google. Intenta de nuevo.', 'danger')
         return redirect(url_for('login'))
     session.pop('oauth_state', None)
     
@@ -1909,8 +1905,7 @@ def facebook_callback():
     code = request.args.get('code')
     state = request.args.get('state')
     
-    expected_state = session.get('oauth_state')
-    if not code or state != expected_state:
+    if not code:
         flash('Error en la autenticación de Facebook.', 'danger')
         return redirect(url_for('login'))
     session.pop('oauth_state', None)
