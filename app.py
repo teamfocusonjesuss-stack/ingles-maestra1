@@ -50,6 +50,8 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'None' if is_production else 'Lax'
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
+oauth_login_tickets = {}
+
 # OAuth Config
 app.config['GOOGLE_CLIENT_ID'] = os.getenv('GOOGLE_CLIENT_ID', '').strip()
 app.config['GOOGLE_CLIENT_SECRET'] = os.getenv('GOOGLE_CLIENT_SECRET', '').strip()
@@ -210,6 +212,24 @@ def get_daily_verse(language=None):
     day_of_year = datetime.now().timetuple().tm_yday
     verse_data = DAILY_VERSES[day_of_year % len(DAILY_VERSES)]
     return verse_data.get(selected_language, verse_data[DEFAULT_LANGUAGE])
+
+
+def create_oauth_login_ticket(user_id):
+    ticket = secrets.token_urlsafe(32)
+    oauth_login_tickets[ticket] = {
+        'user_id': user_id,
+        'expires_at': datetime.utcnow() + timedelta(minutes=5)
+    }
+    return ticket
+
+
+def consume_oauth_login_ticket(ticket):
+    ticket_data = oauth_login_tickets.pop(ticket, None)
+    if not ticket_data:
+        return None
+    if ticket_data['expires_at'] < datetime.utcnow():
+        return None
+    return ticket_data['user_id']
 
 
 def stripe_is_enabled():
@@ -1856,15 +1876,8 @@ def google_callback():
             flash('Tu cuenta no está autorizada para acceder.', 'danger')
             return redirect(url_for('login'))
         
-        session['user_id'] = user.id
-        session['username'] = user.username
-        session['role'] = user.role
-        session['access_lock_version'] = ACCESS_LOCK_VERSION
-        session.permanent = True
-        session.modified = True
-        
-        flash(f'¡Bienvenido {user.nombre}!', 'success')
-        return redirect(url_for('index'))
+        oauth_ticket = create_oauth_login_ticket(user.id)
+        return redirect(url_for('oauth_complete', ticket=oauth_ticket))
     except Exception as e:
         flash(f'Error en la autenticación de Google: {str(e)}', 'danger')
         return redirect(url_for('login'))
@@ -1946,15 +1959,8 @@ def facebook_callback():
             flash('Tu cuenta no está autorizada para acceder.', 'danger')
             return redirect(url_for('login'))
         
-        session['user_id'] = user.id
-        session['username'] = user.username
-        session['role'] = user.role
-        session['access_lock_version'] = ACCESS_LOCK_VERSION
-        session.permanent = True
-        session.modified = True
-        
-        flash(f'¡Bienvenido {user.nombre}!', 'success')
-        return redirect(url_for('index'))
+        oauth_ticket = create_oauth_login_ticket(user.id)
+        return redirect(url_for('oauth_complete', ticket=oauth_ticket))
     except Exception as e:
         flash(f'Error en la autenticación de Facebook: {str(e)}', 'danger')
         return redirect(url_for('login'))
@@ -2046,21 +2052,42 @@ def apple_callback():
                 flash('Tu cuenta no está autorizada para acceder.', 'danger')
                 return redirect(url_for('login'))
             
-            session['user_id'] = user.id
-            session['username'] = user.username
-            session['role'] = user.role
-            session['access_lock_version'] = ACCESS_LOCK_VERSION
-            session.permanent = True
-            session.modified = True
-            
-            flash(f'¡Bienvenido {user.nombre}!', 'success')
-            return redirect(url_for('index'))
+            oauth_ticket = create_oauth_login_ticket(user.id)
+            return redirect(url_for('oauth_complete', ticket=oauth_ticket))
         else:
             flash('No se pudo obtener información de Apple.', 'danger')
             return redirect(url_for('login'))
     except Exception as e:
         flash(f'Error en la autenticación de Apple: {str(e)}', 'danger')
         return redirect(url_for('login'))
+
+
+@app.route('/auth/complete')
+def oauth_complete():
+    ticket = request.args.get('ticket', '').strip()
+    if not ticket:
+        flash('Inicio social inválido. Intenta de nuevo.', 'danger')
+        return redirect(url_for('login'))
+
+    user_id = consume_oauth_login_ticket(ticket)
+    if not user_id:
+        flash('El inicio social expiró. Intenta de nuevo.', 'danger')
+        return redirect(url_for('login'))
+
+    user = User.query.get(user_id)
+    if not user or not is_authorized_access_user(user):
+        flash('No fue posible completar el inicio social.', 'danger')
+        return redirect(url_for('login'))
+
+    session['user_id'] = user.id
+    session['username'] = user.username
+    session['role'] = user.role
+    session['access_lock_version'] = ACCESS_LOCK_VERSION
+    session.permanent = True
+    session.modified = True
+
+    flash(f'¡Bienvenido {user.nombre}!', 'success')
+    return redirect(url_for('index'))
 
 
 @app.route('/login', methods=['GET', 'POST'])
