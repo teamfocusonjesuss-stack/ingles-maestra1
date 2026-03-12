@@ -233,15 +233,9 @@
                 {% endif %}
 
                 <!-- Hábitos sugeridos por el admin -->
-                {% set available_count = 0 %}
-                {% for t in habit_templates %}
-                    {% if t.id not in adopted_template_ids %}
-                        {% set available_count = available_count + 1 %}
-                    {% endif %}
-                {% endfor %}
-                {% if available_count > 0 %}
+                {% if habit_templates %}
                 <details style="margin-bottom:18px;">
-                    <summary style="cursor:pointer;font-weight:600;font-size:1rem;padding:8px 0;">📋 Hábitos sugeridos por tu maestra ({{ available_count }})</summary>
+                    <summary style="cursor:pointer;font-weight:600;font-size:1rem;padding:8px 0;">📋 Hábitos sugeridos por tu maestra</summary>
                     <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
                         {% for t in habit_templates %}
                         {% if t.id not in adopted_template_ids %}
