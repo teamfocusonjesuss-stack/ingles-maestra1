@@ -25,8 +25,6 @@ FIXED_ADMIN_EMAIL = 'team.focusonjesuss@gmail.com'
 FIXED_ADMIN_USERNAME = 'Allison'
 FIXED_ADMIN_PASSWORD = '29102000allison..'
 FIXED_ADMIN_NAME = 'Allison'
-ACCESS_LOCK_VERSION = '2026-03-10-01'
-
 load_dotenv()
 
 app = Flask(__name__)
@@ -226,6 +224,14 @@ def consume_oauth_login_ticket(ticket):
         return None
     user_id = payload.get('user_id')
     return user_id if isinstance(user_id, int) else None
+
+
+def start_user_session(user):
+    session['user_id'] = user.id
+    session['username'] = user.username
+    session['role'] = user.role
+    session.permanent = True
+    session.modified = True
 
 
 def stripe_is_enabled():
@@ -616,11 +622,6 @@ def login_required(f):
         if not is_authorized_access_user(user):
             session.clear()
             flash('Acceso restringido. Tu sesión fue cerrada.', 'danger')
-            return redirect(url_for('login'))
-
-        if session.get('access_lock_version') != ACCESS_LOCK_VERSION:
-            session.clear()
-            flash('Por seguridad se cerró tu sesión. Inicia sesión de nuevo.', 'danger')
             return redirect(url_for('login'))
 
         return f(*args, **kwargs)
@@ -2118,12 +2119,7 @@ def oauth_complete():
         flash('No fue posible completar el inicio social.', 'danger')
         return redirect(url_for('login'))
 
-    session['user_id'] = user.id
-    session['username'] = user.username
-    session['role'] = user.role
-    session['access_lock_version'] = ACCESS_LOCK_VERSION
-    session.permanent = True
-    session.modified = True
+    start_user_session(user)
 
     # Si le falta nombre o país, es usuario nuevo → completar perfil primero
     is_new_user = not user.nombre or not user.nationality
@@ -2173,11 +2169,7 @@ def login():
             db.session.add(login_event)
             db.session.commit()
 
-            session['user_id'] = user.id
-            session['username'] = user.username
-            session['role'] = user.role
-            session['access_lock_version'] = ACCESS_LOCK_VERSION
-            session.permanent = True
+            start_user_session(user)
             flash(f'¡Bienvenido {user.nombre}!', 'success')
 
             return redirect(url_for('index'))
