@@ -9,9 +9,9 @@
         <p class="subtitle">{{ t('login_subtitle') }}</p>
         
         <div class="social-buttons">
-            <a href="#" class="btn-social btn-google">{{ t('login_with_google') }}</a>
-            <a href="#" class="btn-social btn-facebook">{{ t('login_with_facebook') }}</a>
-            <a href="#" class="btn-social btn-apple">{{ t('login_with_apple') }}</a>
+            <a href="{{ url_for('google_auth') }}" class="btn-social btn-google">{{ t('login_with_google') }}</a>
+            <a href="{{ url_for('facebook_auth') }}" class="btn-social btn-facebook">{{ t('login_with_facebook') }}</a>
+            <a href="{{ url_for('apple_auth') }}" class="btn-social btn-apple">{{ t('login_with_apple') }}</a>
         </div>
 
         <form method="POST" class="form" id="loginForm">

@@ -15,6 +15,8 @@ from sqlalchemy import text
 from dotenv import load_dotenv
 from docx import Document
 import stripe
+from authlib.integrations.requests_client import OAuth2Session
+import uuid
 
 FIXED_ADMIN_EMAIL = 'team.focusonjesuss@gmail.com'
 FIXED_ADMIN_USERNAME = 'Allison'
@@ -40,6 +42,17 @@ app.config['ALLOW_PUBLIC_REGISTRATION'] = os.getenv('ALLOW_PUBLIC_REGISTRATION',
 app.config['SESSION_PERMANENT'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
 app.config['SESSION_REFRESH_EACH_REQUEST'] = True
+
+# OAuth Config
+app.config['GOOGLE_CLIENT_ID'] = os.getenv('GOOGLE_CLIENT_ID', '').strip()
+app.config['GOOGLE_CLIENT_SECRET'] = os.getenv('GOOGLE_CLIENT_SECRET', '').strip()
+app.config['FACEBOOK_CLIENT_ID'] = os.getenv('FACEBOOK_CLIENT_ID', '').strip()
+app.config['FACEBOOK_CLIENT_SECRET'] = os.getenv('FACEBOOK_CLIENT_SECRET', '').strip()
+app.config['APPLE_CLIENT_ID'] = os.getenv('APPLE_CLIENT_ID', '').strip()
+app.config['APPLE_CLIENT_SECRET'] = os.getenv('APPLE_CLIENT_SECRET', '').strip()
+app.config['APPLE_TEAM_ID'] = os.getenv('APPLE_TEAM_ID', '').strip()
+app.config['APPLE_KEY_ID'] = os.getenv('APPLE_KEY_ID', '').strip()
+app.config['APPLE_PRIVATE_KEY'] = os.getenv('APPLE_PRIVATE_KEY', '').strip()
 
 if app.config['STRIPE_SECRET_KEY']:
     stripe.api_key = app.config['STRIPE_SECRET_KEY']
@@ -308,6 +321,12 @@ class User(db.Model):
     notification_sound_enabled = db.Column(db.Boolean, nullable=False, default=True)
     session_nonce = db.Column(db.Integer, nullable=False, default=0)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # OAuth Fields
+    google_id = db.Column(db.String(255), unique=True, nullable=True)
+    facebook_id = db.Column(db.String(255), unique=True, nullable=True)
+    apple_id = db.Column(db.String(255), unique=True, nullable=True)
+    oauth_provider = db.Column(db.String(50), nullable=True)  # google, facebook, apple
     
     tareas = db.relationship('Assignment', backref='profesor', lazy=True, foreign_keys='Assignment.teacher_id')
     entregas = db.relationship('Submission', backref='estudiante', lazy=True)
@@ -1649,6 +1668,353 @@ def reset_password(token):
         flash('Contraseña actualizada. Ya puedes iniciar sesión.', 'success')
         return redirect(url_for('login'))
     return render_template('reset_password.html')
+
+# ============== OAuth Helper Functions ==============
+
+def create_or_update_oauth_user(oauth_provider, oauth_data):
+    """
+    Crea o actualiza un usuario basado en datos de OAuth
+    """
+    email = oauth_data.get('email', '').strip().lower()
+    name = oauth_data.get('name', '').strip() or oauth_data.get('given_name', '').strip()
+    oauth_id = oauth_data.get('id', '').strip() or oauth_data.get('sub', '').strip()
+    
+    if not email or not oauth_id:
+        return None, "Datos de OAuth incompletos"
+    
+    # Buscar usuario existente por OAuth ID
+    user = None
+    if oauth_provider.lower() == 'google':
+        user = User.query.filter_by(google_id=oauth_id).first()
+    elif oauth_provider.lower() == 'facebook':
+        user = User.query.filter_by(facebook_id=oauth_id).first()
+    elif oauth_provider.lower() == 'apple':
+        user = User.query.filter_by(apple_id=oauth_id).first()
+    
+    # Si existe, actualizar y retornar
+    if user:
+        if not user.nombre and name:
+            user.nombre = name
+        db.session.commit()
+        return user, None
+    
+    # Buscar por email
+    user = User.query.filter_by(email=email).first()
+    if user:
+        # Actualizar con OAuth ID
+        if oauth_provider.lower() == 'google':
+            user.google_id = oauth_id
+        elif oauth_provider.lower() == 'facebook':
+            user.facebook_id = oauth_id
+        elif oauth_provider.lower() == 'apple':
+            user.apple_id = oauth_id
+        user.oauth_provider = oauth_provider.lower()
+        if not user.nombre and name:
+            user.nombre = name
+        db.session.commit()
+        return user, None
+    
+    # Crear nuevo usuario
+    try:
+        username = email.split('@')[0]
+        # Asegurar username único
+        counter = 1
+        original_username = username
+        while User.query.filter_by(username=username).first():
+            username = f"{original_username}{counter}"
+            counter += 1
+        
+        new_user = User(
+            username=username,
+            email=email,
+            password=generate_password_hash(str(uuid.uuid4()), method='pbkdf2:sha256'),
+            nombre=name or username,
+            role='student'
+        )
+        
+        if oauth_provider.lower() == 'google':
+            new_user.google_id = oauth_id
+        elif oauth_provider.lower() == 'facebook':
+            new_user.facebook_id = oauth_id
+        elif oauth_provider.lower() == 'apple':
+            new_user.apple_id = oauth_id
+        
+        new_user.oauth_provider = oauth_provider.lower()
+        
+        db.session.add(new_user)
+        db.session.commit()
+        return new_user, None
+    except Exception as e:
+        db.session.rollback()
+        return None, f"Error al crear usuario: {str(e)}"
+
+# ============== Google OAuth ==============
+
+@app.route('/auth/google')
+def google_auth():
+    """Inicia el flujo de autenticación de Google"""
+    if not app.config.get('GOOGLE_CLIENT_ID'):
+        flash('Google OAuth no está configurado.', 'danger')
+        return redirect(url_for('login'))
+    
+    google = OAuth2Session(
+        client_id=app.config['GOOGLE_CLIENT_ID'],
+        client_secret=app.config['GOOGLE_CLIENT_SECRET'],
+        redirect_uri=url_for('google_callback', _external=True),
+        scope=['openid', 'profile', 'email']
+    )
+    
+    authorization_url, state = google.create_authorization_url(
+        'https://accounts.google.com/o/oauth2/v2/auth'
+    )
+    session['oauth_state'] = state
+    return redirect(authorization_url)
+
+@app.route('/auth/google/callback')
+def google_callback():
+    """Callback de Google OAuth"""
+    if not app.config.get('GOOGLE_CLIENT_ID'):
+        flash('Google OAuth no está configurado.', 'danger')
+        return redirect(url_for('login'))
+    
+    code = request.args.get('code')
+    state = request.args.get('state')
+    
+    if not code or state != session.get('oauth_state'):
+        flash('Error en la autenticación de Google.', 'danger')
+        return redirect(url_for('login'))
+    
+    try:
+        google = OAuth2Session(
+            client_id=app.config['GOOGLE_CLIENT_ID'],
+            client_secret=app.config['GOOGLE_CLIENT_SECRET'],
+            redirect_uri=url_for('google_callback', _external=True),
+            state=state
+        )
+        
+        token = google.fetch_token(
+            'https://oauth2.googleapis.com/token',
+            authorization_response=request.url,
+            client_id=app.config['GOOGLE_CLIENT_ID'],
+            client_secret=app.config['GOOGLE_CLIENT_SECRET']
+        )
+        
+        # Obtener información del usuario
+        user_info_response = google.get('https://openid.googleapis.com/v1/userinfo')
+        user_info = user_info_response.json()
+        
+        user, error = create_or_update_oauth_user('google', {
+            'id': user_info.get('sub'),
+            'email': user_info.get('email'),
+            'name': user_info.get('name'),
+            'given_name': user_info.get('given_name')
+        })
+        
+        if not user:
+            flash(error or 'Error al crear usuario de Google.', 'danger')
+            return redirect(url_for('login'))
+        
+        if not is_authorized_access_user(user):
+            flash('Tu cuenta no está autorizada para acceder.', 'danger')
+            return redirect(url_for('login'))
+        
+        session['user_id'] = user.id
+        session['username'] = user.username
+        session['role'] = user.role
+        session['access_lock_version'] = ACCESS_LOCK_VERSION
+        session.permanent = True
+        
+        flash(f'¡Bienvenido {user.nombre}!', 'success')
+        return redirect(url_for('index'))
+    except Exception as e:
+        flash(f'Error en la autenticación de Google: {str(e)}', 'danger')
+        return redirect(url_for('login'))
+
+# ============== Facebook OAuth ==============
+
+@app.route('/auth/facebook')
+def facebook_auth():
+    """Inicia el flujo de autenticación de Facebook"""
+    if not app.config.get('FACEBOOK_CLIENT_ID'):
+        flash('Facebook OAuth no está configurado.', 'danger')
+        return redirect(url_for('login'))
+    
+    facebook = OAuth2Session(
+        client_id=app.config['FACEBOOK_CLIENT_ID'],
+        client_secret=app.config['FACEBOOK_CLIENT_SECRET'],
+        redirect_uri=url_for('facebook_callback', _external=True),
+        scope=['email', 'public_profile']
+    )
+    
+    authorization_url, state = facebook.create_authorization_url(
+        'https://www.facebook.com/v18.0/oauth/authorize'
+    )
+    session['oauth_state'] = state
+    return redirect(authorization_url)
+
+@app.route('/auth/facebook/callback')
+def facebook_callback():
+    """Callback de Facebook OAuth"""
+    if not app.config.get('FACEBOOK_CLIENT_ID'):
+        flash('Facebook OAuth no está configurado.', 'danger')
+        return redirect(url_for('login'))
+    
+    code = request.args.get('code')
+    state = request.args.get('state')
+    
+    if not code or state != session.get('oauth_state'):
+        flash('Error en la autenticación de Facebook.', 'danger')
+        return redirect(url_for('login'))
+    
+    try:
+        facebook = OAuth2Session(
+            client_id=app.config['FACEBOOK_CLIENT_ID'],
+            client_secret=app.config['FACEBOOK_CLIENT_SECRET'],
+            redirect_uri=url_for('facebook_callback', _external=True),
+            state=state
+        )
+        
+        token = facebook.fetch_token(
+            'https://graph.facebook.com/v18.0/oauth/access_token',
+            authorization_response=request.url,
+            client_id=app.config['FACEBOOK_CLIENT_ID'],
+            client_secret=app.config['FACEBOOK_CLIENT_SECRET']
+        )
+        
+        # Obtener información del usuario
+        user_info_response = facebook.get(
+            'https://graph.facebook.com/me?fields=id,name,email,picture'
+        )
+        user_info = user_info_response.json()
+        
+        user, error = create_or_update_oauth_user('facebook', {
+            'id': user_info.get('id'),
+            'email': user_info.get('email'),
+            'name': user_info.get('name')
+        })
+        
+        if not user:
+            flash(error or 'Error al crear usuario de Facebook.', 'danger')
+            return redirect(url_for('login'))
+        
+        if not is_authorized_access_user(user):
+            flash('Tu cuenta no está autorizada para acceder.', 'danger')
+            return redirect(url_for('login'))
+        
+        session['user_id'] = user.id
+        session['username'] = user.username
+        session['role'] = user.role
+        session['access_lock_version'] = ACCESS_LOCK_VERSION
+        session.permanent = True
+        
+        flash(f'¡Bienvenido {user.nombre}!', 'success')
+        return redirect(url_for('index'))
+    except Exception as e:
+        flash(f'Error en la autenticación de Facebook: {str(e)}', 'danger')
+        return redirect(url_for('login'))
+
+# ============== Apple OAuth ==============
+
+@app.route('/auth/apple')
+def apple_auth():
+    """Inicia el flujo de autenticación de Apple"""
+    if not app.config.get('APPLE_CLIENT_ID'):
+        flash('Apple OAuth no está configurado.', 'danger')
+        return redirect(url_for('login'))
+    
+    apple = OAuth2Session(
+        client_id=app.config['APPLE_CLIENT_ID'],
+        redirect_uri=url_for('apple_callback', _external=True),
+        scope=['name', 'email']
+    )
+    
+    authorization_url, state = apple.create_authorization_url(
+        'https://appleid.apple.com/auth/authorize'
+    )
+    session['oauth_state'] = state
+    return redirect(authorization_url)
+
+@app.route('/auth/apple/callback', methods=['GET', 'POST'])
+def apple_callback():
+    """Callback de Apple OAuth"""
+    if not app.config.get('APPLE_CLIENT_ID'):
+        flash('Apple OAuth no está configurado.', 'danger')
+        return redirect(url_for('login'))
+    
+    code = request.form.get('code') or request.args.get('code')
+    state = request.form.get('state') or request.args.get('state')
+    user_json_str = request.form.get('user')
+    
+    if not code or state != session.get('oauth_state'):
+        flash('Error en la autenticación de Apple.', 'danger')
+        return redirect(url_for('login'))
+    
+    try:
+        apple_data = None
+        if user_json_str:
+            apple_data = json.loads(user_json_str)
+        
+        apple = OAuth2Session(
+            client_id=app.config['APPLE_CLIENT_ID'],
+            client_secret=app.config['APPLE_CLIENT_SECRET'],
+            redirect_uri=url_for('apple_callback', _external=True),
+            state=state
+        )
+        
+        token = apple.fetch_token(
+            'https://appleid.apple.com/auth/token',
+            authorization_response=request.url if request.method == 'GET' else None,
+            code=code,
+            client_id=app.config['APPLE_CLIENT_ID'],
+            client_secret=app.config['APPLE_CLIENT_SECRET']
+        )
+        
+        # Decodificar ID token para obtener información del usuario
+        import jwt
+        id_token = token.get('id_token')
+        if id_token:
+            decoded = jwt.decode(id_token, options={"verify_signature": False})
+            email = decoded.get('email', '')
+            user_id = decoded.get('sub', '')
+            
+            # Obtener nombre de los datos de usuario si está disponible
+            name = ''
+            if apple_data:
+                name_obj = apple_data.get('name', {})
+                first_name = name_obj.get('firstName', '').strip()
+                last_name = name_obj.get('lastName', '').strip()
+                name = f"{first_name} {last_name}".strip()
+            
+            user, error = create_or_update_oauth_user('apple', {
+                'id': user_id,
+                'email': email,
+                'name': name,
+                'sub': user_id
+            })
+            
+            if not user:
+                flash(error or 'Error al crear usuario de Apple.', 'danger')
+                return redirect(url_for('login'))
+            
+            if not is_authorized_access_user(user):
+                flash('Tu cuenta no está autorizada para acceder.', 'danger')
+                return redirect(url_for('login'))
+            
+            session['user_id'] = user.id
+            session['username'] = user.username
+            session['role'] = user.role
+            session['access_lock_version'] = ACCESS_LOCK_VERSION
+            session.permanent = True
+            
+            flash(f'¡Bienvenido {user.nombre}!', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('No se pudo obtener información de Apple.', 'danger')
+            return redirect(url_for('login'))
+    except Exception as e:
+        flash(f'Error en la autenticación de Apple: {str(e)}', 'danger')
+        return redirect(url_for('login'))
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -3367,6 +3733,14 @@ with app.app_context():
         db.session.execute(text("ALTER TABLE user ADD COLUMN paypal_data_opt_in BOOLEAN DEFAULT 0"))
     if 'session_nonce' not in user_columns:
         db.session.execute(text("ALTER TABLE user ADD COLUMN session_nonce INTEGER DEFAULT 0"))
+    if 'google_id' not in user_columns:
+        db.session.execute(text("ALTER TABLE user ADD COLUMN google_id VARCHAR(255)"))
+    if 'facebook_id' not in user_columns:
+        db.session.execute(text("ALTER TABLE user ADD COLUMN facebook_id VARCHAR(255)"))
+    if 'apple_id' not in user_columns:
+        db.session.execute(text("ALTER TABLE user ADD COLUMN apple_id VARCHAR(255)"))
+    if 'oauth_provider' not in user_columns:
+        db.session.execute(text("ALTER TABLE user ADD COLUMN oauth_provider VARCHAR(50)"))
     db.session.execute(text("UPDATE user SET notification_sound_enabled = 1 WHERE notification_sound_enabled IS NULL"))
     db.session.execute(text("UPDATE user SET paypal_data_opt_in = 0 WHERE paypal_data_opt_in IS NULL"))
     db.session.execute(text("UPDATE user SET session_nonce = 0 WHERE session_nonce IS NULL"))
