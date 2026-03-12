@@ -2088,7 +2088,7 @@ def oauth_complete():
     session.modified = True
 
     flash(f'¡Bienvenido {user.nombre}!', 'success')
-    return make_response(_render_panel())
+    return redirect(url_for('panel'))
 
 
 @app.route('/login', methods=['GET', 'POST'])
