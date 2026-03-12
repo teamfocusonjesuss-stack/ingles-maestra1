@@ -1782,7 +1782,7 @@ def google_auth():
     google = OAuth2Session(
         client_id=app.config['GOOGLE_CLIENT_ID'],
         client_secret=app.config['GOOGLE_CLIENT_SECRET'],
-        redirect_uri=url_for('google_callback', _external=True),
+        redirect_uri=url_for('google_callback', _external=True, _scheme='https'),
         scope=['openid', 'profile', 'email']
     )
     
@@ -1808,16 +1808,23 @@ def google_callback():
     session.pop('oauth_state', None)
     
     try:
+        # Forzar https en la URL de callback (Render pasa http detrás del proxy)
+        callback_url = request.url
+        if callback_url.startswith('http://'):
+            callback_url = 'https://' + callback_url[7:]
+
+        redirect_uri = url_for('google_callback', _external=True, _scheme='https')
+
         google = OAuth2Session(
             client_id=app.config['GOOGLE_CLIENT_ID'],
             client_secret=app.config['GOOGLE_CLIENT_SECRET'],
-            redirect_uri=url_for('google_callback', _external=True),
+            redirect_uri=redirect_uri,
             state=state
         )
         
         token = google.fetch_token(
             'https://oauth2.googleapis.com/token',
-            authorization_response=request.url,
+            authorization_response=callback_url,
             client_id=app.config['GOOGLE_CLIENT_ID'],
             client_secret=app.config['GOOGLE_CLIENT_SECRET']
         )
@@ -1829,12 +1836,12 @@ def google_callback():
 
         # Obtener información del usuario con token explícito
         user_info_response = requests.get(
-            'https://openid.googleapis.com/v1/userinfo',
+            'https://www.googleapis.com/oauth2/v3/userinfo',
             headers={'Authorization': f'Bearer {access_token}'},
             timeout=15
         )
         if not user_info_response.ok:
-            flash('No se pudo obtener información de tu cuenta Google.', 'danger')
+            flash(f'Error userinfo Google ({user_info_response.status_code}): {user_info_response.text[:200]}', 'danger')
             return redirect(url_for('login'))
         user_info = user_info_response.json()
 
