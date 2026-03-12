@@ -2087,6 +2087,12 @@ def oauth_complete():
     session.permanent = True
     session.modified = True
 
+    # Si le falta nombre o país, es usuario nuevo → completar perfil primero
+    is_new_user = not user.nombre or not user.nationality
+    if is_new_user:
+        flash('¡Bienvenido! Completa tu perfil antes de entrar a la app.', 'success')
+        return redirect(url_for('profile', onboarding='1'))
+
     flash(f'¡Bienvenido {user.nombre}!', 'success')
     return redirect(url_for('panel'))
 
@@ -2200,14 +2206,19 @@ def profile():
                 return redirect(url_for('profile'))
             user.password = generate_password_hash(new_password, method='pbkdf2:sha256')
         
+        onboarding = request.form.get('onboarding') == '1'
         try:
             db.session.commit()
+            if onboarding:
+                flash(f'¡Perfil completado! Bienvenido/a {user.nombre or ""}. 🎉', 'success')
+                return redirect(url_for('panel'))
             flash('Perfil actualizado correctamente.', 'success')
         except Exception as e:
             db.session.rollback()
             flash('Error al actualizar el perfil.', 'danger')
-    
-    return render_template('profile.html', user=user)
+
+    onboarding = request.args.get('onboarding') == '1'
+    return render_template('profile.html', user=user, onboarding=onboarding)
 
 @app.route('/students')
 @teacher_only

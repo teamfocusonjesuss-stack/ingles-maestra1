@@ -6,6 +6,12 @@
 <div class="container">
     <div class="profile-container">
         <div class="profile-header">
+            {% if onboarding %}
+            <div style="background:linear-gradient(135deg,#1f6f43,#16a34a);border-radius:12px;padding:20px 24px;margin-bottom:24px;text-align:center;">
+                <h2 style="margin:0 0 8px;font-size:1.6rem;">👋 ¡Bienvenido/a a English Academy!</h2>
+                <p style="margin:0;opacity:0.9;">Antes de entrar, completa tu información. Solo toma un momento.</p>
+            </div>
+            {% endif %}
             <h1>{{ t('profile_title') }}</h1>
             <span class="role-badge">{{ t('teacher') if user.role == 'teacher' else t('student') }}</span>
         </div>
@@ -27,6 +33,9 @@
             </div>
             
             <form method="POST" class="profile-form">
+                {% if onboarding %}
+                <input type="hidden" name="onboarding" value="1">
+                {% endif %}
                 <div class="form-group">
                     <label for="nombre">{{ t('full_name') }}</label>
                     <input type="text" id="nombre" name="nombre" value="{{ user.nombre or '' }}" placeholder="{{ t('your_name') }}">
@@ -95,7 +104,9 @@
                     </div>
                 </div>
                 
-                <button type="submit" class="btn btn-primary">{{ t('save_changes') }}</button>
+                <button type="submit" class="btn btn-primary">
+                    {% if onboarding %}🚀 Continuar a la app{% else %}{{ t('save_changes') }}{% endif %}
+                </button>
             </form>
         </div>
     </div>
