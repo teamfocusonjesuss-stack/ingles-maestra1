@@ -25,9 +25,12 @@ body {
     background-color: var(--dark-color);
     color: var(--light-color);
     line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
-html, body, .main-content {
+html {
     height: 100%;
 }
 
@@ -288,6 +291,7 @@ a:hover {
 .main-content {
     display: flex;
     flex-direction: column;
+    flex: 1;
 }
 
 .messages-layout {
@@ -1879,7 +1883,8 @@ select {
     color: white;
     text-align: center;
     padding: 20px;
-    margin-top: 40px;
+    margin-top: auto;
+    flex-shrink: 0;
 }
 
 .footer-content p {
