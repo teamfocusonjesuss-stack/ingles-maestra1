@@ -1320,6 +1320,118 @@ select {
     opacity: 1 !important;
 }
 
+/* ============== ALTO CONTRASTE EN FONDOS CLAROS ============== */
+body:not(.app-simple-pro) .section,
+body:not(.app-simple-pro) .stat-card,
+body:not(.app-simple-pro) .task-card,
+body:not(.app-simple-pro) .material-card,
+body:not(.app-simple-pro) .form,
+body:not(.app-simple-pro) .profile-content,
+body:not(.app-simple-pro) .notion-calendar-card,
+body:not(.app-simple-pro) .calendar-event-item,
+body:not(.app-simple-pro) .executive-preview-box,
+body:not(.app-simple-pro) .table-wrapper,
+body:not(.app-simple-pro) .doc-main-panel,
+body:not(.app-simple-pro) .doc-comments-panel,
+body:not(.app-simple-pro) .annotation-item,
+body:not(.app-simple-pro) .selected-text-preview,
+body:not(.app-simple-pro) .conversation-item,
+body:not(.app-simple-pro) .chat-bubble.incoming,
+body:not(.app-simple-pro) .nav-bell-dropdown,
+body:not(.app-simple-pro) .welcome-modal {
+    color: #111111 !important;
+}
+
+body:not(.app-simple-pro) .section h1,
+body:not(.app-simple-pro) .section h2,
+body:not(.app-simple-pro) .section h3,
+body:not(.app-simple-pro) .section h4,
+body:not(.app-simple-pro) .stat-card h1,
+body:not(.app-simple-pro) .stat-card h2,
+body:not(.app-simple-pro) .stat-card h3,
+body:not(.app-simple-pro) .task-card h1,
+body:not(.app-simple-pro) .task-card h2,
+body:not(.app-simple-pro) .task-card h3,
+body:not(.app-simple-pro) .material-card h1,
+body:not(.app-simple-pro) .material-card h2,
+body:not(.app-simple-pro) .material-card h3,
+body:not(.app-simple-pro) .form h1,
+body:not(.app-simple-pro) .form h2,
+body:not(.app-simple-pro) .form h3,
+body:not(.app-simple-pro) .profile-content h1,
+body:not(.app-simple-pro) .profile-content h2,
+body:not(.app-simple-pro) .profile-content h3,
+body:not(.app-simple-pro) .conversation-item strong,
+body:not(.app-simple-pro) .chat-bubble.incoming strong,
+body:not(.app-simple-pro) .table th,
+body:not(.app-simple-pro) .table td strong {
+    color: #0a0a0a !important;
+    font-weight: 800 !important;
+}
+
+body:not(.app-simple-pro) .section p,
+body:not(.app-simple-pro) .section span,
+body:not(.app-simple-pro) .section li,
+body:not(.app-simple-pro) .section label,
+body:not(.app-simple-pro) .stat-label,
+body:not(.app-simple-pro) .task-desc,
+body:not(.app-simple-pro) .task-date,
+body:not(.app-simple-pro) .material-desc,
+body:not(.app-simple-pro) .material-teacher,
+body:not(.app-simple-pro) .empty-state,
+body:not(.app-simple-pro) .table td,
+body:not(.app-simple-pro) .table th,
+body:not(.app-simple-pro) .calendar-weekdays span,
+body:not(.app-simple-pro) .calendar-month-label,
+body:not(.app-simple-pro) .calendar-event-item span,
+body:not(.app-simple-pro) .executive-preview-box p,
+body:not(.app-simple-pro) .workspace-note,
+body:not(.app-simple-pro) .workspace-student-filter label,
+body:not(.app-simple-pro) .annotation-meta span,
+body:not(.app-simple-pro) .annotation-comment,
+body:not(.app-simple-pro) .annotation-quote,
+body:not(.app-simple-pro) .conversation-content p,
+body:not(.app-simple-pro) .conversation-topline span,
+body:not(.app-simple-pro) .chat-bubble.incoming p,
+body:not(.app-simple-pro) .chat-bubble.incoming .chat-bubble-meta span,
+body:not(.app-simple-pro) .chat-bubble.incoming .chat-bubble-meta strong,
+body:not(.app-simple-pro) .bell-section h4,
+body:not(.app-simple-pro) .bell-item span,
+body:not(.app-simple-pro) .bell-empty {
+    color: #111111 !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
+}
+
+body:not(.app-simple-pro) .section .subtitle,
+body:not(.app-simple-pro) .form .subtitle,
+body:not(.app-simple-pro) .profile-content .subtitle,
+body:not(.app-simple-pro) .chat-header .subtitle,
+body:not(.app-simple-pro) .conversation-content .subtitle {
+    color: #111111 !important;
+    font-weight: 700 !important;
+}
+
+body:not(.app-simple-pro) input[type="text"],
+body:not(.app-simple-pro) input[type="email"],
+body:not(.app-simple-pro) input[type="password"],
+body:not(.app-simple-pro) input[type="number"],
+body:not(.app-simple-pro) input[type="url"],
+body:not(.app-simple-pro) input[type="file"],
+body:not(.app-simple-pro) input[type="datetime-local"],
+body:not(.app-simple-pro) select,
+body:not(.app-simple-pro) textarea {
+    color: #111111;
+    font-weight: 600;
+}
+
+body:not(.app-simple-pro) input::placeholder,
+body:not(.app-simple-pro) textarea::placeholder {
+    color: #334155;
+    opacity: 1;
+    font-weight: 600;
+}
+
 /* Texto del dashboard en negro (evita apariencia gris) */
 .dashboard .section,
 .dashboard .section p,
