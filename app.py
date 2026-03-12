@@ -1780,9 +1780,11 @@ def google_callback():
     code = request.args.get('code')
     state = request.args.get('state')
     
-    if not code or state != session.get('oauth_state'):
+    expected_state = session.get('oauth_state')
+    if not code or state != expected_state:
         flash('Error en la autenticación de Google.', 'danger')
         return redirect(url_for('login'))
+    session.pop('oauth_state', None)
     
     try:
         google = OAuth2Session(
@@ -1800,7 +1802,11 @@ def google_callback():
         )
         
         # Obtener información del usuario
-        user_info_response = google.get('https://openid.googleapis.com/v1/userinfo')
+        google_userinfo_client = OAuth2Session(
+            client_id=app.config['GOOGLE_CLIENT_ID'],
+            token=token
+        )
+        user_info_response = google_userinfo_client.get('https://openid.googleapis.com/v1/userinfo')
         user_info = user_info_response.json()
         
         user, error = create_or_update_oauth_user('google', {
@@ -1862,9 +1868,11 @@ def facebook_callback():
     code = request.args.get('code')
     state = request.args.get('state')
     
-    if not code or state != session.get('oauth_state'):
+    expected_state = session.get('oauth_state')
+    if not code or state != expected_state:
         flash('Error en la autenticación de Facebook.', 'danger')
         return redirect(url_for('login'))
+    session.pop('oauth_state', None)
     
     try:
         facebook = OAuth2Session(
@@ -1882,7 +1890,11 @@ def facebook_callback():
         )
         
         # Obtener información del usuario
-        user_info_response = facebook.get(
+        facebook_userinfo_client = OAuth2Session(
+            client_id=app.config['FACEBOOK_CLIENT_ID'],
+            token=token
+        )
+        user_info_response = facebook_userinfo_client.get(
             'https://graph.facebook.com/me?fields=id,name,email,picture'
         )
         user_info = user_info_response.json()
