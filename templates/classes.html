@@ -181,6 +181,101 @@
     </div>
 </div>
 
+                <!-- Emoji picker inline (mostrado al tocar un día) -->
+                <div id="emojiPickerBox" style="display:none;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px 16px;margin-bottom:14px;">
+                    <div style="font-weight:600;margin-bottom:10px;color:#94a3b8;">
+                        📅 <span id="emojiPickerDateLabel">Selecciona un emoji para este día</span>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+                        {% for em in ['😊','😄','😎','🥳','💪','🙏','✅','🌟','🎯','📚','🏃','💡','😴','🤒','😢','😡','❤️','🔥','⚡','🌈','☀️','🌙','🌊','🎵','🍎'] %}
+                        <button type="button" class="emoji-opt-btn"
+                            style="font-size:1.4rem;background:none;border:2px solid transparent;border-radius:8px;cursor:pointer;padding:2px 4px;transition:border .15s;"
+                            onmouseover="this.style.borderColor='#3b82f6'"
+                            onmouseout="this.style.borderColor='transparent'"
+                            onclick="pickCalendarEmoji('{{ em }}')">{{ em }}</button>
+                        {% endfor %}
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button type="button" class="btn btn-small btn-secondary" onclick="pickCalendarEmoji('__remove__')">🗑️ Quitar emoji</button>
+                        <button type="button" class="btn btn-small btn-secondary" onclick="document.getElementById('emojiPickerBox').style.display='none'">Cancelar</button>
+                    </div>
+                </div>
+
+            <!-- HÁBITOS -->
+            <div class="section full-width" style="margin-top:4px;">
+                <h2>🔄 Hábitos del día</h2>
+
+                {% if user_habits %}
+                <div class="tasks-list" style="margin-bottom:20px;">
+                    {% for habit in user_habits %}
+                    <div class="task-card" id="habit-card-{{ habit.id }}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                        <div style="display:flex;align-items:center;gap:10px;flex:1;">
+                            <button type="button"
+                                id="habit-btn-{{ habit.id }}"
+                                onclick="toggleHabit({{ habit.id }}, this)"
+                                data-emoji="{{ habit.emoji or '⬜' }}"
+                                style="font-size:1.6rem;background:none;border:2px solid {% if habit.id in habit_logs_today %}#22c55e{% else %}#475569{% endif %};border-radius:50%;width:42px;height:42px;cursor:pointer;flex-shrink:0;transition:all .2s;">
+                                {{ '✅' if habit.id in habit_logs_today else (habit.emoji or '⬜') }}
+                            </button>
+                            <div>
+                                <strong>{{ habit.emoji or '' }} {{ habit.name }}</strong>
+                                {% if habit.is_personal %}<span style="font-size:0.75rem;opacity:0.6;"> (personal)</span>{% endif %}
+                            </div>
+                        </div>
+                        <form method="POST" action="{{ url_for('delete_user_habit', habit_id=habit.id) }}" onsubmit="return confirm('¿Eliminar este hábito?');">
+                            <button type="submit" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:1.1rem;padding:4px 8px;">🗑️</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="empty-state" style="margin-bottom:16px;">Aún no tienes hábitos activos. ¡Agrega uno abajo!</p>
+                {% endif %}
+
+                <!-- Hábitos sugeridos por el admin -->
+                {% set available_templates = habit_templates | selectattr('id', 'not in', adopted_template_ids) | list %}
+                {% if available_templates %}
+                <details style="margin-bottom:18px;">
+                    <summary style="cursor:pointer;font-weight:600;font-size:1rem;padding:8px 0;">📋 Hábitos sugeridos por tu maestra ({{ available_templates|length }})</summary>
+                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+                        {% for t in available_templates %}
+                        <div style="display:flex;align-items:center;justify-content:space-between;background:#1e293b;border-radius:8px;padding:10px 14px;">
+                            <div>
+                                <strong>{{ t.emoji or '📌' }} {{ t.name }}</strong>
+                                {% if t.description %}<p style="margin:2px 0 0;font-size:0.82rem;opacity:0.7;">{{ t.description }}</p>{% endif %}
+                            </div>
+                            <form method="POST" action="{{ url_for('adopt_habit') }}" style="margin:0;">
+                                <input type="hidden" name="template_id" value="{{ t.id }}">
+                                <button type="submit" class="btn btn-small btn-primary">+ Agregar</button>
+                            </form>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </details>
+                {% endif %}
+
+                <!-- Crear hábito personal -->
+                <details style="margin-bottom:4px;">
+                    <summary style="cursor:pointer;font-weight:600;font-size:1rem;padding:8px 0;">✏️ Crear mi propio hábito</summary>
+                    <form method="POST" action="{{ url_for('create_personal_habit') }}" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                        <div class="form-group" style="margin:0;flex:1;min-width:180px;">
+                            <label>Nombre del hábito</label>
+                            <input type="text" name="name" placeholder="Ej: Leer 20 minutos" required>
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>Emoji</label>
+                            <select name="emoji" style="width:110px;">
+                                <option value="">Sin emoji</option>
+                                {% for em in ['📚','💪','🏃','🙏','💡','🎯','✅','🌟','🌅','💧','🥗','😴','🎵','✍️','🧘'] %}
+                                <option value="{{ em }}">{{ em }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="height:42px;">Crear hábito</button>
+                    </form>
+                </details>
+            </div>
+
 <div id="studentPresentationModal" class="modal-overlay" style="display:none;">
     <div class="modal">
         <div class="modal-header" id="studentPresentationTitle">Vista del documento</div>
@@ -194,6 +289,8 @@
 <script>
 const studentCalendarEvents = {{ calendar_events|tojson }};
 let studentCalendarCursor = new Date();
+const dayEmojis = {{ day_emojis|tojson }};
+let emojiPickerDate = null;
 
 function toEmbedUrl(url) {
     if (!url) return '';
@@ -294,17 +391,26 @@ function renderStudentCalendar() {
         cell.textContent = day;
         if (eventDays.has(key)) cell.classList.add('has-event');
         if (day === today.getDate()) cell.classList.add('today');
-        cell.style.cursor = 'pointer';
-        cell.title = 'Click to set note date';
+        cell.style.cssText = 'cursor:pointer;position:relative;';
+        cell.title = 'Toca para emoji o nota';
+        // emoji badge
+        if (dayEmojis[key]) {
+            const badge = document.createElement('span');
+            badge.textContent = dayEmojis[key];
+            badge.style.cssText = 'position:absolute;bottom:0;right:0;font-size:0.62rem;line-height:1;pointer-events:none;';
+            cell.appendChild(badge);
+        }
         cell.addEventListener('click', () => {
             const input = document.getElementById('student_note_event_date');
             if (input) {
-                const currentTime = input.value && input.value.includes('T')
-                    ? input.value.split('T')[1]
-                    : '09:00';
-                input.value = `${key}T${currentTime}`;
-                input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const t = input.value && input.value.includes('T') ? input.value.split('T')[1] : '09:00';
+                input.value = `${key}T${t}`;
             }
+            emojiPickerDate = key;
+            const lbl = document.getElementById('emojiPickerDateLabel');
+            if (lbl) { const [y,m,d]=key.split('-'); lbl.textContent=`${d}/${m}/${y}${dayEmojis[key]?' — actual: '+dayEmojis[key]:''}`;  }
+            const box = document.getElementById('emojiPickerBox');
+            if (box) { box.style.display='block'; box.scrollIntoView({behavior:'smooth',block:'nearest'}); }
         });
         grid.appendChild(cell);
     }
@@ -313,6 +419,37 @@ function renderStudentCalendar() {
 function changeStudentMonth(direction) {
     studentCalendarCursor.setMonth(studentCalendarCursor.getMonth() + direction);
     renderStudentCalendar();
+}
+
+function pickCalendarEmoji(emoji) {
+    if (!emojiPickerDate) return;
+    const fd = new FormData();
+    fd.append('date', emojiPickerDate);
+    fd.append('emoji', emoji);
+    fetch('/calendar/emoji', {method:'POST', body:fd})
+        .then(r=>r.json()).then(data=>{
+            if (data.ok) {
+                if (emoji==='__remove__') delete dayEmojis[emojiPickerDate];
+                else dayEmojis[emojiPickerDate] = emoji;
+                renderStudentCalendar();
+                document.getElementById('emojiPickerBox').style.display = 'none';
+                emojiPickerDate = null;
+            }
+        });
+}
+
+function toggleHabit(habitId, btn) {
+    const fd = new FormData();
+    fetch(`/habits/log/${habitId}`, {method:'POST', body:fd})
+        .then(r=>r.json()).then(data=>{
+            if (data.done) {
+                btn.textContent = '✅';
+                btn.style.borderColor = '#22c55e';
+            } else {
+                btn.textContent = btn.dataset.emoji || '⬜';
+                btn.style.borderColor = '#475569';
+            }
+        });
 }
 
 document.addEventListener('DOMContentLoaded', renderStudentCalendar);

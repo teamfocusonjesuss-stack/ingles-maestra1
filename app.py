@@ -562,6 +562,41 @@ class MaterialLink(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class HabitTemplate(db.Model):
+    """Hábitos creados por el admin/teacher disponibles para los estudiantes."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    emoji = db.Column(db.String(10), nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class UserHabit(db.Model):
+    """Hábitos activos de un estudiante (del admin o personales)."""
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    template_id = db.Column(db.Integer, db.ForeignKey('habit_template.id'), nullable=True)
+    name = db.Column(db.String(120), nullable=False)
+    emoji = db.Column(db.String(10), nullable=True)
+    is_personal = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class HabitLog(db.Model):
+    """Registro diario de cumplimiento de hábito."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_habit_id = db.Column(db.Integer, db.ForeignKey('user_habit.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    date = db.Column(db.String(10), nullable=False)  # YYYY-MM-DD
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class CalendarDayEmoji(db.Model):
+    """Emoji que el estudiante pone en un día del calendario."""
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    date = db.Column(db.String(10), nullable=False)  # YYYY-MM-DD
+    emoji = db.Column(db.String(10), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 # ============== DECORADORES ==============
 
 def login_required(f):
@@ -847,6 +882,7 @@ def _render_panel():
     daily_verse = get_daily_verse(session.get('lang', DEFAULT_LANGUAGE))
 
     if user.role == 'teacher':
+        habit_templates = HabitTemplate.query.order_by(HabitTemplate.created_at.asc()).all()
         teacher_assignments = Assignment.query.filter_by(teacher_id=user.id).all()
         teacher_materials = Material.query.filter_by(user_id=user.id).all()
         scheduled_pending = StudentPayment.query.filter_by(status='pending').count()
@@ -864,6 +900,7 @@ def _render_panel():
             user=user,
             daily_verse=daily_verse,
             is_teacher=True,
+            habit_templates=habit_templates,
             stats={
                 'tasks': len(teacher_assignments),
                 'materials': len(teacher_materials),
@@ -2370,6 +2407,13 @@ def classes():
             'reminder_note': item.reminder_note
         })
 
+    today_str = datetime.utcnow().strftime('%Y-%m-%d')
+    habit_templates = HabitTemplate.query.order_by(HabitTemplate.created_at.asc()).all()
+    user_habits = UserHabit.query.filter_by(student_id=user.id).order_by(UserHabit.created_at.asc()).all()
+    habit_logs_today = {log.user_habit_id for log in HabitLog.query.filter_by(student_id=user.id, date=today_str).all()}
+    adopted_template_ids = {h.template_id for h in user_habits if h.template_id}
+    day_emojis = {e.date: e.emoji for e in CalendarDayEmoji.query.filter_by(student_id=user.id).all()}
+
     return render_template(
         'classes.html',
         user=user,
@@ -2378,7 +2422,13 @@ def classes():
         materials=materials,
         important_dates=important_dates,
         personal_notes=personal_notes,
-        calendar_events=calendar_events
+        calendar_events=calendar_events,
+        habit_templates=habit_templates,
+        user_habits=user_habits,
+        habit_logs_today=habit_logs_today,
+        adopted_template_ids=adopted_template_ids,
+        day_emojis=day_emojis,
+        today_str=today_str
     )
 
 @app.route('/courses', methods=['GET', 'POST'])
@@ -2465,11 +2515,138 @@ def courses():
     return render_template(
         'courses.html',
         courses=course_list,
-        material_links=material_links,
-        is_teacher=current_user.role == 'teacher',
         teacher_map=teacher_map,
-        students=students
+        material_links=material_links,
+        students=students,
+        is_teacher=(current_user.role == 'teacher')
     )
+
+# ============== CALENDAR EMOJI ==============
+
+@app.route('/calendar/emoji', methods=['POST'])
+@login_required
+def save_calendar_emoji():
+    date = request.form.get('date', '').strip()
+    emoji = request.form.get('emoji', '').strip()
+    if not date:
+        return {'ok': False, 'error': 'Missing date'}, 400
+    student_id = session['user_id']
+    existing = CalendarDayEmoji.query.filter_by(student_id=student_id, date=date).first()
+    if emoji == '__remove__' or not emoji:
+        if existing:
+            db.session.delete(existing)
+    else:
+        if existing:
+            existing.emoji = emoji
+        else:
+            db.session.add(CalendarDayEmoji(student_id=student_id, date=date, emoji=emoji))
+    db.session.commit()
+    return {'ok': True}
+
+# ============== HABITS ==============
+
+@app.route('/habits/template', methods=['POST'])
+@teacher_only
+def create_habit_template():
+    name = request.form.get('name', '').strip()
+    emoji = request.form.get('emoji', '').strip()
+    description = request.form.get('description', '').strip()
+    if not name:
+        flash('El nombre del hábito es requerido.', 'danger')
+        return redirect(url_for('panel'))
+    db.session.add(HabitTemplate(
+        name=name,
+        emoji=emoji or None,
+        description=description or None,
+        created_by=session['user_id']
+    ))
+    db.session.commit()
+    flash(f'Hábito "{name}" creado para los estudiantes.', 'success')
+    return redirect(url_for('panel'))
+
+@app.route('/habits/template/delete/<int:template_id>', methods=['POST'])
+@teacher_only
+def delete_habit_template(template_id):
+    template = HabitTemplate.query.get_or_404(template_id)
+    HabitLog.query.filter(
+        HabitLog.user_habit_id.in_(
+            db.session.query(UserHabit.id).filter_by(template_id=template_id)
+        )
+    ).delete(synchronize_session=False)
+    UserHabit.query.filter_by(template_id=template_id).delete()
+    db.session.delete(template)
+    db.session.commit()
+    flash('Hábito eliminado.', 'success')
+    return redirect(url_for('panel'))
+
+@app.route('/habits/adopt', methods=['POST'])
+@login_required
+def adopt_habit():
+    template_id = request.form.get('template_id', type=int)
+    if not template_id:
+        return redirect(url_for('classes'))
+    template = HabitTemplate.query.get_or_404(template_id)
+    student_id = session['user_id']
+    if UserHabit.query.filter_by(student_id=student_id, template_id=template_id).first():
+        flash('Ya tienes este hábito activo.', 'warning')
+        return redirect(url_for('classes'))
+    db.session.add(UserHabit(
+        student_id=student_id,
+        template_id=template_id,
+        name=template.name,
+        emoji=template.emoji,
+        is_personal=False
+    ))
+    db.session.commit()
+    flash(f'Hábito "{template.name}" agregado.', 'success')
+    return redirect(url_for('classes'))
+
+@app.route('/habits/personal', methods=['POST'])
+@login_required
+def create_personal_habit():
+    name = request.form.get('name', '').strip()
+    emoji = request.form.get('emoji', '').strip()
+    if not name:
+        flash('El nombre del hábito es requerido.', 'danger')
+        return redirect(url_for('classes'))
+    db.session.add(UserHabit(
+        student_id=session['user_id'],
+        template_id=None,
+        name=name,
+        emoji=emoji or None,
+        is_personal=True
+    ))
+    db.session.commit()
+    flash(f'Hábito "{name}" creado.', 'success')
+    return redirect(url_for('classes'))
+
+@app.route('/habits/log/<int:habit_id>', methods=['POST'])
+@login_required
+def toggle_habit_log(habit_id):
+    student_id = session['user_id']
+    today_str = datetime.utcnow().strftime('%Y-%m-%d')
+    habit = UserHabit.query.filter_by(id=habit_id, student_id=student_id).first_or_404()
+    existing = HabitLog.query.filter_by(user_habit_id=habit_id, student_id=student_id, date=today_str).first()
+    if existing:
+        db.session.delete(existing)
+        done = False
+    else:
+        db.session.add(HabitLog(user_habit_id=habit_id, student_id=student_id, date=today_str))
+        done = True
+    db.session.commit()
+    from flask import jsonify
+    return jsonify({'ok': True, 'done': done})
+
+@app.route('/habits/delete/<int:habit_id>', methods=['POST'])
+@login_required
+def delete_user_habit(habit_id):
+    student_id = session['user_id']
+    habit = UserHabit.query.filter_by(id=habit_id, student_id=student_id).first_or_404()
+    HabitLog.query.filter_by(user_habit_id=habit_id).delete()
+    db.session.delete(habit)
+    db.session.commit()
+    flash(f'Hábito "{habit.name}" eliminado.', 'success')
+    return redirect(url_for('classes'))
 
 @app.route('/material-links/<int:link_id>/delete', methods=['POST'])
 @teacher_only
@@ -3867,6 +4044,11 @@ with app.app_context():
     material_link_columns = [row[1] for row in db.session.execute(text("PRAGMA table_info(material_link)")).fetchall()]
     if not material_link_columns:
         MaterialLink.__table__.create(bind=db.engine, checkfirst=True)
+
+    HabitTemplate.__table__.create(bind=db.engine, checkfirst=True)
+    UserHabit.__table__.create(bind=db.engine, checkfirst=True)
+    HabitLog.__table__.create(bind=db.engine, checkfirst=True)
+    CalendarDayEmoji.__table__.create(bind=db.engine, checkfirst=True)
 
     db.session.commit()
 

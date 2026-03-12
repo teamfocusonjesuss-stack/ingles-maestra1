@@ -76,6 +76,43 @@
             {% endif %}
         </div>
 
+        <div class="section" style="margin-top: 20px;">
+            <h2>🔄 Gestión de Hábitos</h2>
+            <form method="POST" action="{{ url_for('create_habit_template') }}"
+                  style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px;">
+                <input name="emoji" placeholder="Emoji (ej: 📚)" maxlength="4"
+                       style="width:70px;padding:6px 8px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#f1f5f9;">
+                <input name="name" placeholder="Nombre del hábito" required
+                       style="flex:1;min-width:160px;padding:6px 10px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#f1f5f9;">
+                <input name="description" placeholder="Descripción (opcional)"
+                       style="flex:2;min-width:180px;padding:6px 10px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#f1f5f9;">
+                <button type="submit"
+                        style="padding:6px 14px;background:#6366f1;color:#fff;border:none;border-radius:6px;cursor:pointer;">
+                    ＋ Crear
+                </button>
+            </form>
+            {% if habit_templates %}
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                {% for t in habit_templates %}
+                <div style="display:flex;align-items:center;gap:10px;background:#1e293b;border-radius:8px;padding:8px 12px;">
+                    <span style="font-size:1.4rem;">{{ t.emoji or '🔄' }}</span>
+                    <span style="flex:1;font-weight:600;">{{ t.name }}</span>
+                    {% if t.description %}<span style="color:#94a3b8;font-size:0.85rem;">{{ t.description }}</span>{% endif %}
+                    <form method="POST" action="{{ url_for('delete_habit_template', template_id=t.id) }}"
+                          onsubmit="return confirm('¿Eliminar este hábito de la lista?');" style="margin:0;">
+                        <button type="submit"
+                                style="background:#dc2626;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:0.8rem;">
+                            🗑
+                        </button>
+                    </form>
+                </div>
+                {% endfor %}
+                </div>
+            {% else %}
+                <p class="empty-state">Sin hábitos creados aún. Usa el formulario para agregar.</p>
+            {% endif %}
+        </div>
+
         {% else %}
         <div class="stats-grid">
             <div class="stat-card">
