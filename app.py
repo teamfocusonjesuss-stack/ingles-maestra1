@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify, make_response
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -2082,7 +2082,7 @@ def oauth_complete():
     session.modified = True
 
     flash(f'¡Bienvenido {user.nombre}!', 'success')
-    return redirect(url_for('index'))
+    return make_response(_render_panel())
 
 
 @app.route('/login', methods=['GET', 'POST'])
