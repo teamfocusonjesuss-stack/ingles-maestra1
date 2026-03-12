@@ -9,65 +9,93 @@
         <p class="subtitle">Comunicación directa entre docente y estudiante</p>
     </div>
 
-    <div class="messages-layout">
-        <section class="section">
-            <h2>Enviar mensaje</h2>
-            <form method="POST" class="form-modern">
+    <div class="messages-layout messages-chat-layout">
+        <aside class="section conversations-panel">
+            <h2>Nueva conversación</h2>
+            <form method="GET" action="{{ url_for('messages') }}" class="form-modern compact-form" style="margin-bottom: 18px;">
                 <div class="form-group">
-                    <label for="recipient_id">Destinatario</label>
-                    <select id="recipient_id" name="recipient_id" required>
+                    <label for="chat">Destinatario</label>
+                    <select id="chat" name="chat" required>
                         <option value="">Selecciona destinatario...</option>
                         {% for recipient in recipients %}
-                            <option value="{{ recipient.id }}">{{ recipient.nombre or recipient.username }} ({{ 'Docente' if recipient.role == 'teacher' else 'Estudiante' }})</option>
+                            <option value="{{ recipient.id }}" {% if active_chat_id == recipient.id %}selected{% endif %}>{{ recipient.nombre or recipient.username }} ({{ 'Docente' if recipient.role == 'teacher' else 'Estudiante' }})</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="content">Mensaje</label>
-                    <textarea id="content" name="content" rows="5" required placeholder="Escribe tu mensaje..."></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary">Enviar mensaje</button>
+                <button type="submit" class="btn btn-primary btn-block">Abrir chat</button>
             </form>
-        </section>
 
-        <section class="section">
-            <h2>Recibidos</h2>
-            <div class="message-list">
-                {% if received_messages %}
-                    {% for message in received_messages %}
-                        {% set sender = users_map.get(message.sender_id) %}
-                        <article class="message-item incoming">
-                            <div class="message-meta">
-                                <strong>{{ sender.nombre if sender and sender.nombre else (sender.username if sender else 'Usuario') }}</strong>
-                                <span>{{ message.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+            <h2>Conversaciones</h2>
+            <div class="conversation-list">
+                {% if conversation_summaries %}
+                    {% for convo in conversation_summaries %}
+                        {% set contact = convo.user %}
+                        <a href="{{ url_for('messages', chat=convo.user_id) }}" class="conversation-item {% if active_chat_id == convo.user_id %}active{% endif %}">
+                            <div class="conversation-avatar">{{ (contact.nombre or contact.username or 'U')[0]|upper }}</div>
+                            <div class="conversation-content">
+                                <div class="conversation-topline">
+                                    <strong>{{ contact.nombre if contact and contact.nombre else (contact.username if contact else 'Usuario') }}</strong>
+                                    <span>{{ convo.last_message.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                                </div>
+                                <p>
+                                    {% if convo.last_message.sender_id == user.id %}Tú: {% endif %}
+                                    {{ convo.last_message.content[:70] }}{% if convo.last_message.content|length > 70 %}...{% endif %}
+                                </p>
                             </div>
-                            <p>{{ message.content }}</p>
-                        </article>
+                        </a>
                     {% endfor %}
                 {% else %}
-                    <p class="empty-state">No tienes mensajes recibidos.</p>
+                    <p class="empty-state">Aún no tienes conversaciones.</p>
                 {% endif %}
             </div>
-        </section>
+        </aside>
 
-        <section class="section">
-            <h2>Enviados</h2>
-            <div class="message-list">
-                {% if sent_messages %}
-                    {% for message in sent_messages %}
-                        {% set recipient = users_map.get(message.recipient_id) %}
-                        <article class="message-item outgoing">
-                            <div class="message-meta">
-                                <strong>Para: {{ recipient.nombre if recipient and recipient.nombre else (recipient.username if recipient else 'Usuario') }}</strong>
-                                <span>{{ message.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
-                            </div>
-                            <p>{{ message.content }}</p>
-                        </article>
-                    {% endfor %}
-                {% else %}
-                    <p class="empty-state">No has enviado mensajes aún.</p>
-                {% endif %}
-            </div>
+        <section class="section chat-panel">
+            {% if active_contact %}
+                <div class="chat-header">
+                    <div class="conversation-avatar large">{{ (active_contact.nombre or active_contact.username or 'U')[0]|upper }}</div>
+                    <div>
+                        <h2 style="margin:0;">{{ active_contact.nombre or active_contact.username }}</h2>
+                        <p class="subtitle" style="margin:4px 0 0 0;">{{ 'Docente' if active_contact.role == 'teacher' else 'Estudiante' }}</p>
+                    </div>
+                </div>
+
+                <div class="chat-thread">
+                    {% if active_messages %}
+                        {% for message in active_messages %}
+                            <article class="chat-bubble-row {% if message.sender_id == user.id %}mine{% else %}theirs{% endif %}">
+                                <div class="chat-bubble {% if message.sender_id == user.id %}outgoing{% else %}incoming{% endif %}">
+                                    <p>{{ message.content }}</p>
+                                    <div class="chat-bubble-meta">
+                                        {% if message.sender_id == user.id %}
+                                            <strong>Tú</strong>
+                                        {% else %}
+                                            <strong>{{ active_contact.nombre or active_contact.username }}</strong>
+                                        {% endif %}
+                                        <span>{{ message.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                                    </div>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    {% else %}
+                        <p class="empty-state">Aún no hay mensajes en esta conversación.</p>
+                    {% endif %}
+                </div>
+
+                <form method="POST" class="form-modern chat-composer">
+                    <input type="hidden" name="recipient_id" value="{{ active_contact.id }}">
+                    <div class="form-group" style="margin:0;">
+                        <label for="content">Mensaje</label>
+                        <textarea id="content" name="content" rows="4" required placeholder="Escribe tu mensaje..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Enviar</button>
+                </form>
+            {% else %}
+                <div class="chat-empty-state">
+                    <h2>Selecciona un contacto</h2>
+                    <p class="empty-state">Abre una conversación desde la izquierda para ver el chat estilo WhatsApp.</p>
+                </div>
+            {% endif %}
         </section>
     </div>
 </div>

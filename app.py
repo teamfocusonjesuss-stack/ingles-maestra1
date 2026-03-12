@@ -12,6 +12,7 @@ import smtplib
 import requests
 from email.mime.text import MIMEText
 from sqlalchemy import text
+from collections import defaultdict
 from dotenv import load_dotenv
 from docx import Document
 import stripe
@@ -3285,19 +3286,56 @@ def messages():
         db.session.commit()
 
         flash('Mensaje enviado correctamente.', 'success')
-        return redirect(url_for('messages'))
+        return redirect(url_for('messages', chat=recipient.id))
 
     received_messages = Message.query.filter_by(recipient_id=current_user.id) \
         .order_by(Message.created_at.desc()).limit(100).all()
     sent_messages = Message.query.filter_by(sender_id=current_user.id) \
         .order_by(Message.created_at.desc()).limit(100).all()
+    all_messages = Message.query.filter(
+        (Message.sender_id == current_user.id) | (Message.recipient_id == current_user.id)
+    ).order_by(Message.created_at.asc()).limit(300).all()
 
     Message.query.filter_by(recipient_id=current_user.id, is_read=False).update({'is_read': True})
     UserNotification.query.filter_by(user_id=current_user.id, is_read=False).update({'is_read': True})
     db.session.commit()
 
     recipients = User.query.filter(User.role != current_user.role).order_by(User.nombre.asc(), User.username.asc()).all()
-    users_map = {user.id: user for user in User.query.filter(User.id.in_({msg.sender_id for msg in received_messages} | {msg.recipient_id for msg in sent_messages})).all()} if (received_messages or sent_messages) else {}
+    participant_ids = {msg.sender_id for msg in all_messages} | {msg.recipient_id for msg in all_messages}
+    participant_ids.discard(current_user.id)
+    recipient_map = {recipient.id: recipient for recipient in recipients}
+    users_map = {
+        user.id: user for user in User.query.filter(User.id.in_(participant_ids)).all()
+    } if participant_ids else {}
+    users_map.update(recipient_map)
+
+    conversations = defaultdict(list)
+    for message in all_messages:
+        other_user_id = message.recipient_id if message.sender_id == current_user.id else message.sender_id
+        conversations[other_user_id].append(message)
+
+    conversation_summaries = []
+    for other_user_id, messages_list in conversations.items():
+        other_user = users_map.get(other_user_id)
+        last_message = messages_list[-1]
+        conversation_summaries.append({
+            'user_id': other_user_id,
+            'user': other_user,
+            'last_message': last_message,
+            'messages': messages_list
+        })
+
+    conversation_summaries.sort(key=lambda item: item['last_message'].created_at, reverse=True)
+
+    requested_chat_id = request.args.get('chat', type=int)
+    active_chat_id = None
+    if requested_chat_id and requested_chat_id in users_map:
+        active_chat_id = requested_chat_id
+    elif conversation_summaries:
+        active_chat_id = conversation_summaries[0]['user_id']
+
+    active_contact = users_map.get(active_chat_id) if active_chat_id else None
+    active_messages = conversations.get(active_chat_id, []) if active_chat_id else []
 
     return render_template(
         'messages.html',
@@ -3305,7 +3343,11 @@ def messages():
         recipients=recipients,
         received_messages=received_messages,
         sent_messages=sent_messages,
-        users_map=users_map
+        users_map=users_map,
+        conversation_summaries=conversation_summaries,
+        active_chat_id=active_chat_id,
+        active_contact=active_contact,
+        active_messages=active_messages
     )
 
 @app.route('/notifications/mark-read', methods=['POST'])
