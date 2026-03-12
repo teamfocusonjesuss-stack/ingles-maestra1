@@ -17,6 +17,7 @@ from docx import Document
 import stripe
 from authlib.integrations.requests_client import OAuth2Session
 import uuid
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 FIXED_ADMIN_EMAIL = 'team.focusonjesuss@gmail.com'
 FIXED_ADMIN_USERNAME = 'Allison'
@@ -42,6 +43,12 @@ app.config['ALLOW_PUBLIC_REGISTRATION'] = os.getenv('ALLOW_PUBLIC_REGISTRATION',
 app.config['SESSION_PERMANENT'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
 app.config['SESSION_REFRESH_EACH_REQUEST'] = True
+
+is_production = bool(os.getenv('RENDER')) or os.getenv('FLASK_ENV', '').lower() == 'production'
+app.config['SESSION_COOKIE_SECURE'] = is_production
+app.config['SESSION_COOKIE_SAMESITE'] = 'None' if is_production else 'Lax'
+
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 # OAuth Config
 app.config['GOOGLE_CLIENT_ID'] = os.getenv('GOOGLE_CLIENT_ID', '').strip()
@@ -1854,6 +1861,7 @@ def google_callback():
         session['role'] = user.role
         session['access_lock_version'] = ACCESS_LOCK_VERSION
         session.permanent = True
+        session.modified = True
         
         flash(f'¡Bienvenido {user.nombre}!', 'success')
         return redirect(url_for('index'))
@@ -1943,6 +1951,7 @@ def facebook_callback():
         session['role'] = user.role
         session['access_lock_version'] = ACCESS_LOCK_VERSION
         session.permanent = True
+        session.modified = True
         
         flash(f'¡Bienvenido {user.nombre}!', 'success')
         return redirect(url_for('index'))
@@ -2042,6 +2051,7 @@ def apple_callback():
             session['role'] = user.role
             session['access_lock_version'] = ACCESS_LOCK_VERSION
             session.permanent = True
+            session.modified = True
             
             flash(f'¡Bienvenido {user.nombre}!', 'success')
             return redirect(url_for('index'))
