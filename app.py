@@ -2412,6 +2412,7 @@ def classes():
     user_habits = UserHabit.query.filter_by(student_id=user.id).order_by(UserHabit.created_at.asc()).all()
     habit_logs_today = {log.user_habit_id for log in HabitLog.query.filter_by(student_id=user.id, date=today_str).all()}
     adopted_template_ids = {h.template_id for h in user_habits if h.template_id}
+    available_habit_templates = [tpl for tpl in habit_templates if tpl.id not in adopted_template_ids]
     day_emojis = {e.date: e.emoji for e in CalendarDayEmoji.query.filter_by(student_id=user.id).all()}
 
     return render_template(
@@ -2424,6 +2425,7 @@ def classes():
         personal_notes=personal_notes,
         calendar_events=calendar_events,
         habit_templates=habit_templates,
+        available_habit_templates=available_habit_templates,
         user_habits=user_habits,
         habit_logs_today=habit_logs_today,
         adopted_template_ids=adopted_template_ids,
