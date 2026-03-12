@@ -1782,7 +1782,7 @@ def google_auth():
     google = OAuth2Session(
         client_id=app.config['GOOGLE_CLIENT_ID'],
         client_secret=app.config['GOOGLE_CLIENT_SECRET'],
-        redirect_uri=url_for('google_callback', _external=True, _scheme='https'),
+        redirect_uri='https://ingles-maestra1.onrender.com/auth/google/callback',
         scope=['openid', 'profile', 'email']
     )
     
@@ -1800,76 +1800,80 @@ def google_callback():
         return redirect(url_for('login'))
     
     code = request.args.get('code')
-    state = request.args.get('state')
-    
+
     if not code:
-        flash('Error en la autenticación de Google.', 'danger')
+        flash('Error en la autenticación de Google: no se recibió código.', 'danger')
         return redirect(url_for('login'))
     session.pop('oauth_state', None)
-    
+
     try:
-        # Forzar https en la URL de callback (Render pasa http detrás del proxy)
-        callback_url = request.url
-        if callback_url.startswith('http://'):
-            callback_url = 'https://' + callback_url[7:]
+        # Intercambio de código por token directo (sin Authlib para evitar problemas)
+        redirect_uri = 'https://ingles-maestra1.onrender.com/auth/google/callback'
 
-        redirect_uri = url_for('google_callback', _external=True, _scheme='https')
-
-        google = OAuth2Session(
-            client_id=app.config['GOOGLE_CLIENT_ID'],
-            client_secret=app.config['GOOGLE_CLIENT_SECRET'],
-            redirect_uri=redirect_uri,
-            state=state
-        )
-        
-        token = google.fetch_token(
+        token_resp = requests.post(
             'https://oauth2.googleapis.com/token',
-            authorization_response=callback_url,
-            client_id=app.config['GOOGLE_CLIENT_ID'],
-            client_secret=app.config['GOOGLE_CLIENT_SECRET']
+            data={
+                'code': code,
+                'client_id': app.config['GOOGLE_CLIENT_ID'],
+                'client_secret': app.config['GOOGLE_CLIENT_SECRET'],
+                'redirect_uri': redirect_uri,
+                'grant_type': 'authorization_code',
+            },
+            timeout=15
         )
-        
-        access_token = token.get('access_token')
-        if not access_token:
-            flash('No se pudo obtener token de acceso de Google.', 'danger')
+        if not token_resp.ok:
+            flash(f'Error al obtener token Google ({token_resp.status_code}): {token_resp.text[:300]}', 'danger')
             return redirect(url_for('login'))
 
-        # Obtener información del usuario con token explícito
-        user_info_response = requests.get(
+        token_data = token_resp.json()
+        access_token = token_data.get('access_token')
+        id_token_str = token_data.get('id_token')
+
+        if not access_token:
+            flash(f'Google no devolvió access_token. Respuesta: {str(token_data)[:300]}', 'danger')
+            return redirect(url_for('login'))
+
+        # Obtener info del usuario
+        user_info_resp = requests.get(
             'https://www.googleapis.com/oauth2/v3/userinfo',
             headers={'Authorization': f'Bearer {access_token}'},
             timeout=15
         )
-        if not user_info_response.ok:
-            flash(f'Error userinfo Google ({user_info_response.status_code}): {user_info_response.text[:200]}', 'danger')
+        if not user_info_resp.ok:
+            flash(f'Error userinfo Google ({user_info_resp.status_code}): {user_info_resp.text[:300]}', 'danger')
             return redirect(url_for('login'))
-        user_info = user_info_response.json()
 
+        user_info = user_info_resp.json()
         google_sub = user_info.get('sub')
         google_email = (user_info.get('email') or '').strip().lower()
         google_name = user_info.get('name')
 
-        if (not google_sub or not google_email) and token.get('id_token'):
+        # Fallback con id_token si faltan datos
+        if (not google_sub or not google_email) and id_token_str:
             try:
                 import jwt
-                decoded = jwt.decode(token.get('id_token'), options={"verify_signature": False})
+                decoded = jwt.decode(id_token_str, options={"verify_signature": False})
                 google_sub = google_sub or decoded.get('sub')
                 google_email = google_email or (decoded.get('email') or '').strip().lower()
                 google_name = google_name or decoded.get('name')
             except Exception:
                 pass
-        
+
+        if not google_sub or not google_email:
+            flash(f'No se pudo obtener email/sub de Google. user_info={str(user_info)[:200]}', 'danger')
+            return redirect(url_for('login'))
+
         user, error = create_or_update_oauth_user('google', {
             'id': google_sub,
             'email': google_email,
             'name': google_name,
             'given_name': user_info.get('given_name')
         })
-        
+
         if not user:
             flash(error or 'Error al crear usuario de Google.', 'danger')
             return redirect(url_for('login'))
-        
+
         if not is_authorized_access_user(user):
             flash('Tu cuenta no está autorizada para acceder.', 'danger')
             return redirect(url_for('login'))
