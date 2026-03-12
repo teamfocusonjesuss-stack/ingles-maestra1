@@ -1781,8 +1781,11 @@ def google_callback():
     state = request.args.get('state')
     
     expected_state = session.get('oauth_state')
-    if not code or state != expected_state:
+    if not code:
         flash('Error en la autenticación de Google.', 'danger')
+        return redirect(url_for('login'))
+    if expected_state and state != expected_state:
+        flash('Error de seguridad en autenticación de Google. Intenta de nuevo.', 'danger')
         return redirect(url_for('login'))
     session.pop('oauth_state', None)
     
@@ -1801,18 +1804,40 @@ def google_callback():
             client_secret=app.config['GOOGLE_CLIENT_SECRET']
         )
         
-        # Obtener información del usuario
-        google_userinfo_client = OAuth2Session(
-            client_id=app.config['GOOGLE_CLIENT_ID'],
-            token=token
+        access_token = token.get('access_token')
+        if not access_token:
+            flash('No se pudo obtener token de acceso de Google.', 'danger')
+            return redirect(url_for('login'))
+
+        # Obtener información del usuario con token explícito
+        user_info_response = requests.get(
+            'https://openid.googleapis.com/v1/userinfo',
+            headers={'Authorization': f'Bearer {access_token}'},
+            timeout=15
         )
-        user_info_response = google_userinfo_client.get('https://openid.googleapis.com/v1/userinfo')
+        if not user_info_response.ok:
+            flash('No se pudo obtener información de tu cuenta Google.', 'danger')
+            return redirect(url_for('login'))
         user_info = user_info_response.json()
+
+        google_sub = user_info.get('sub')
+        google_email = (user_info.get('email') or '').strip().lower()
+        google_name = user_info.get('name')
+
+        if (not google_sub or not google_email) and token.get('id_token'):
+            try:
+                import jwt
+                decoded = jwt.decode(token.get('id_token'), options={"verify_signature": False})
+                google_sub = google_sub or decoded.get('sub')
+                google_email = google_email or (decoded.get('email') or '').strip().lower()
+                google_name = google_name or decoded.get('name')
+            except Exception:
+                pass
         
         user, error = create_or_update_oauth_user('google', {
-            'id': user_info.get('sub'),
-            'email': user_info.get('email'),
-            'name': user_info.get('name'),
+            'id': google_sub,
+            'email': google_email,
+            'name': google_name,
             'given_name': user_info.get('given_name')
         })
         
